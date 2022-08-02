@@ -1,0 +1,239 @@
+import { LitElement, html, customElement, property, CSSResult, TemplateResult, css, PropertyValues } from 'lit-element';
+import { HomeAssistant, LovelaceCardEditor } from 'custom-card-helpers';
+
+import './editor';
+
+import { TamCardConfig } from './types';
+import { CARD_VERSION } from './const';
+
+import { localize } from './localize/localize';
+
+/* eslint no-console: 0 */
+console.info(
+  `%c  TAM-CARD \n%c  ${localize('common.version')} ${CARD_VERSION}    `,
+  'color: orange; font-weight: bold; background: black',
+  'color: white; font-weight: bold; background: dimgray',
+);
+
+export class TamCard extends LitElement {
+  public static async getConfigElement(): Promise<LovelaceCardEditor> {
+    return document.createElement('tam-card-editor') as LovelaceCardEditor;
+  }
+
+  public static getStubConfig(): object {
+    return {};
+  }
+
+  @property() public hass?: HomeAssistant;
+  @property() private _config?: TamCardConfig;
+
+  public async setConfig(config: TamCardConfig): Promise<void> {
+    if (!config) {
+      throw new Error(localize('common.invalid_configuration'));
+    }
+    if (!config.stop || config.stop.length === 0 || !config.direction || config.direction.length === 0) {
+      return;
+    }
+
+    this._config = {
+      ...config,
+    };
+
+    this._config.waitFetch = false;
+  }
+  protected timeConvert(n, nb) {
+    var num = n;
+    var hours = (num / 60);
+    var rhours = Math.floor(hours);
+    var minutes = (hours - rhours) * 60;
+    var rminutes = Math.round(minutes);
+    if (rhours != 0) return rhours + " h " + rminutes + " min";
+    else if (nb === 1) return rminutes + " minutes";
+    else return rminutes + " min"
+  }
+
+  protected sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  protected async fetchDataApi() {
+    const response = await fetch('https://montpellier-tam-api-time.vercel.app/api/query?stop_name=' + this._config?.stop + '&trip_headsign=' + this._config?.direction);
+    if (this._config) this._config.fetchedData = await response.json();
+  }
+
+  protected async waitFetchApi() {
+    if (this._config) {
+      if (this._config.waitFetch === false) {
+        this._config.waitFetch = true
+        this.fetchDataApi()
+        await this.sleep(30000);
+        this._config.waitFetch = false
+      }
+    }
+  }
+
+  protected render(): TemplateResult | void {
+    if (!this._config || !this.hass) {
+      return html`Prévisualisation: Veuillez sélectionner un arrêt et une direction`;
+    }
+
+    this.waitFetchApi()
+
+    if (!this._config.hasOwnProperty('fetchedData')) {
+      return html`
+        <p class="dot-loading">Chargement&nbsp<span>.</span><span>.</span><span>.</span><span>.</span><span>.</span></p>
+      `;
+    } else {
+      const proche = this._config.fetchedData["result"].time[0] == "Proche !!";
+      const noConversion = this._config.fetchedData["result"].time[0] == "Proche !!" || this._config.fetchedData["result"].time[0] == "Indisponible"
+
+      if (this._config.fetchedData["result"].time.length > 1) {
+        return html`
+        <ha-card tabindex="0" aria-label="TAM">
+          <div id="states" style="background-color: ${this._config.fetchedData["result"].color};" class="${proche ? 'card-content clignote': 'card-content'}">
+            <div class="flex">
+              <div class="badge">
+                <ha-icon icon="${this._config.fetchedData["result"].icon || 'mdi:tram'}"></ha-icon>
+              </div>
+              <div class="text cap info flexAlign">
+              <div>${(this._config.fetchedData["result"].stop).toLowerCase()}</div>
+              &nbsp&nbsp<div class="">➜</div>&nbsp&nbsp
+              <div>${(this._config.fetchedData["result"].direction).toLowerCase()}</div>
+              </div>
+
+              <div class="text right flexAlign">
+                <div>${noConversion ? this._config.fetchedData["result"].time[0]: this.timeConvert(this._config.fetchedData["result"].time[0], 2)}</div>
+                &nbsp&nbsp&nbsp<div class="bold">|</div>&nbsp&nbsp&nbsp
+                <div>${this.timeConvert(this._config.fetchedData["result"].time[1], 2)}</div>
+              </div>
+            </div>
+          </div>
+        </ha-card>
+        `;
+      }
+      else {
+        return html`
+        <ha-card tabindex="0" aria-label="TAM">
+          <div id="states" style="background-color: ${this._config.fetchedData["result"].color};" class="${proche ? 'card-content clignote': 'card-content'}">
+            <div class="flex">
+              <div class="badge">
+                <ha-icon icon="${this._config.fetchedData["result"].icon || 'mdi:tram'}"></ha-icon>
+              </div>
+              <div class="text cap info flexAlign">
+              <div class="">${(this._config.fetchedData["result"].stop).toLowerCase()}</div>
+              &nbsp&nbsp<div class="">➜</div>&nbsp&nbsp
+              <div class="text">${(this._config.fetchedData["result"].direction).toLowerCase()}</div>
+              </div>
+              <div class="text right flexAlign">
+                <div class="">${noConversion ? this._config.fetchedData["result"].time : this.timeConvert(this._config.fetchedData["result"].time[0], 1)}</div>
+              </div>
+            </div>
+          </div>
+        </ha-card>
+        `;
+      }
+    }
+  }
+
+  static get styles(): CSSResult {
+    return css`
+    .flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-width: 0px;
+      flex: 1 1 0%;
+    }
+    .card-content {
+      color: black;
+      border-radius: 0.3em;
+    }
+    .flexAlign {
+      display: flex;
+    }
+    .info {
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      flex: 1 0 60px;
+      margin-left: 1em;
+    }
+    .right {
+      text-align: right;
+    }
+    .cap {
+      text-transform: capitalize;
+    }
+    .bold {
+      font-weight: 700;
+      font-size: 2em;
+      margin-top: -0.1em;
+    }
+    .text{
+      font-size: 1em;
+    }
+    .ha-icon {
+      width: 10px;
+      height: 10px;
+    }
+    .clignote  {
+       animation-duration: 2.5s;
+       animation-name: clignoter;
+       animation-iteration-count: infinite;
+       transition: none;
+    }
+    @keyframes clignoter {
+      0%   { opacity:1; }
+      50%   {opacity:0.2; }
+      100% { opacity:1; }
+    }
+    .dot-loading {
+      font-size: 1.6em;
+    }
+
+    .dot-loading span {
+      font-size: 1.9em;
+      animation-name: blink;
+      animation-duration: 1.4s;
+      animation-iteration-count: infinite;
+      animation-fill-mode: both;
+    }
+
+    .dot-loading span:nth-child(2) {
+      animation-delay: .2s;
+    }
+
+    .dot-loading span:nth-child(3) {
+      animation-delay: .4s;
+    }
+    .dot-loading span:nth-child(4) {
+      animation-delay: .6s;
+    }
+    .dot-loading span:nth-child(5) {
+      animation-delay: .8s;
+    }
+
+    @keyframes blink {
+      0% {
+        opacity: .2;
+      }
+      20% {
+        opacity: 1;
+      }
+      100% {
+        opacity: .2;
+      }
+    }
+    `;
+  }
+}
+
+customElements.define('tam-card', TamCard);
+(window as any).customCards = (window as any).customCards || [];
+(window as any).customCards.push({
+  type: "tam-card",
+  name: "TAM Montpellier",
+  preview: false,
+  description:
+    "La carte TAM Montpellier affiche les horaires des prochains TRAM / Bus d'un arrêt défini.",
+});
