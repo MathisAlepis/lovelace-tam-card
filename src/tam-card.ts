@@ -96,7 +96,8 @@ export class TamCard extends LitElement {
 			const proche = this._config.fetchedData['result'].time[0] == 'Proche !!';
 			const noConversion =
 				this._config.fetchedData['result'].time[0] == 'Proche !!' ||
-				this._config.fetchedData['result'].time[0] == 'Indisponible';
+				this._config.fetchedData['result'].time[0] == 'Indisponible' ||
+				this._config.fetchedData['result'].time[0] == 'Fin de service';
 
 			if (this._config.fetchedData['result'].time.length > 1) {
 				return html`
