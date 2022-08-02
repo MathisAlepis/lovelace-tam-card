@@ -1,4 +1,4 @@
-import { LitElement, html, customElement, property, TemplateResult, CSSResult, css } from 'lit-element';
+import { LitElement, html, property, TemplateResult, CSSResult, css } from 'lit-element';
 import { HomeAssistant, fireEvent, LovelaceCardEditor } from 'custom-card-helpers';
 
 import { TamCardConfig } from './types';
@@ -11,7 +11,7 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 	public setConfig(config: TamCardConfig): void {
 		this._config = config;
 		this._config.waitFetch2 = false;
-		this.fetchDataApi()
+		this.fetchDataApi();
 	}
 
 	get _stop(): string {
@@ -30,18 +30,18 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 		return '';
 	}
 
-	protected async fetchDataApi() {
-		let res = {}
-		const tamCSV = await (await fetch("https://montpellier-tam-api-time.vercel.app/api/")).json()
+	protected async fetchDataApi(): Promise<void> {
+		const res = {};
+		const tamCSV = await (await fetch('https://montpellier-tam-api-time.vercel.app/api/')).json();
 
 		tamCSV.result.map(o => {
-			let tab = []
-			var item = tamCSV.result.filter(item => item.stop_name === o.stop_name);
-			item.map((j: { trip_headsign: never; }) => tab.push(j.trip_headsign))
-			let uniq = [...new Set(tab)]
-			res[(o.stop_name).toString()] = uniq
-		})
-		if (this._config) this._config.allCourses = res
+			const tab = [];
+			const item = tamCSV.result.filter(item => item.stop_name === o.stop_name);
+			item.map((j: { trip_headsign: never }) => tab.push(j.trip_headsign));
+			const uniq = [...new Set(tab)];
+			res[o.stop_name.toString()] = uniq;
+		});
+		if (this._config) this._config.allCourses = res;
 	}
 
 	protected render(): TemplateResult | void {
@@ -55,11 +55,11 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 			`;
 		}
 
-		let allStop = Object.keys(this._config.allCourses);
+		const allStop = Object.keys(this._config.allCourses);
 		allStop.sort();
 
-		let direction
-		if (this._config.stop) direction = this._config.allCourses[this._config.stop]
+		let direction;
+		if (this._config.stop) direction = this._config.allCourses[this._config.stop];
 
 		return html`
 			<div class="card-config">
@@ -73,30 +73,35 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 							@selected=${this._valueChanged}
 							.configValue=${'stop'}
 							.value=${this._stop}
-							@closed=${(ev) => ev.stopPropagation()}
+							@closed=${(ev): void => ev.stopPropagation()}
 						>
 							${allStop.map(val => {
-								return html` <mwc-list-item .value="${val}">${val}</mwc-list-item> `;
+								return html`
+									<mwc-list-item·.value="${val}">${val}</mwc-list-item>
+								`;
 							})}
 						</ha-select>
 					</div>
-					${this._config.stop ?
-						html`
-							<div class="values" for="show_hide_direction">
-								<ha-select
-									label="Direction"
-									@selected=${this._valueChanged}
-									.configValue=${'direction'}
-									.value=${this._direction}
-									@closed=${(ev) => ev.stopPropagation()}
-								>
-									${direction.map(val => {
-										return html` <mwc-list-item .value="${val}">${val}</mwc-list-item> `;
-									})}
-								</ha-select>
-							</div>
-						` :
-						html``
+					${
+						this._config.stop
+							? html`
+									<div class="values" for="show_hide_direction">
+										<ha-select
+											label="Direction"
+											@selected=${this._valueChanged}
+											.configValue=${'direction'}
+											.value=${this._direction}
+											@closed=${(ev): void => ev.stopPropagation()}
+										>
+											${direction.map(val => {
+												return html`
+													<mwc-list-item .value="${val}">${val}</mwc-list-item>
+												`;
+											})}
+										</ha-select>
+									</div>
+							  `
+							: html``
 					}
 					</div>
 				</div>
@@ -112,7 +117,7 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 		if (this[`_${target.configValue}`] === target.value) {
 			return;
 		}
-		if (target.configValue == "stop") this._config["direction"] = ""
+		if (target.configValue == 'stop') this._config['direction'] = '';
 		if (target.configValue) {
 			if (target.value === '') {
 				delete this._config[target.configValue];
