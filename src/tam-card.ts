@@ -71,7 +71,7 @@ export class TamCard extends LitElement {
 			if (this._config.waitFetch === false) {
 				this._config.waitFetch = true;
 				this.fetchDataApi();
-				await this.sleep(30000);
+				await this.sleep(20000);
 				this._config.waitFetch = false;
 			}
 		}

@@ -64,10 +64,13 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 		return html`
 			<div class="card-config">
 				<div class="description">
-					<p>Si votre arrêt / direction n'est pas disponible après le chargement, réessayer ultérieurement de préférence entre lundi et vendredi aux alentour de 12h.</p>
+					<p>
+						Si votre arrêt / direction n'est pas disponible après le chargement, réessayer ultérieurement de
+						préférence entre lundi et vendredi aux alentour de 12h.
+					</p>
 				</div>
 				<div class="option">
-					<div class="values" for="show_hide_stop">
+					<div class="values">
 						<ha-select
 							label="Arrêt"
 							@selected=${this._valueChanged}
@@ -77,33 +80,30 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 						>
 							${allStop.map(val => {
 								return html`
-									<mwc-list-item·.value="${val}">${val}</mwc-list-item>
+									<mwc-list-item .value="${val}">${val}</mwc-list-item>
 								`;
 							})}
 						</ha-select>
 					</div>
-					${
-						this._config.stop
-							? html`
-									<div class="values" for="show_hide_direction">
-										<ha-select
-											label="Direction"
-											@selected=${this._valueChanged}
-											.configValue=${'direction'}
-											.value=${this._direction}
-											@closed=${(ev): void => ev.stopPropagation()}
-										>
-											${direction.map(val => {
-												return html`
-													<mwc-list-item .value="${val}">${val}</mwc-list-item>
-												`;
-											})}
-										</ha-select>
-									</div>
-							  `
-							: html``
-					}
-					</div>
+					${this._config.stop
+						? html`
+								<div class="values">
+									<ha-select
+										label="Direction"
+										@selected=${this._valueChanged}
+										.configValue=${'direction'}
+										.value=${this._direction}
+										@closed=${(ev): void => ev.stopPropagation()}
+									>
+										${direction.map(val => {
+											return html`
+												<mwc-list-item .value="${val}">${val}</mwc-list-item>
+											`;
+										})}
+									</ha-select>
+								</div>
+						  `
+						: html``}
 				</div>
 			</div>
 		`;
