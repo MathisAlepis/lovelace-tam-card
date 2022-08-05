@@ -26,6 +26,8 @@ export class TamCard extends LitElement {
 
 	@property() public hass?: HomeAssistant;
 	@property() private _config?: TamCardConfig;
+	@property() private waitFetch = false;
+	@property() private fetchedData = {};
 
 	public async setConfig(config: TamCardConfig): Promise<void> {
 		if (!config) {
@@ -38,8 +40,6 @@ export class TamCard extends LitElement {
 		this._config = {
 			...config,
 		};
-
-		this._config.waitFetch = false;
 	}
 	protected timeConvert(n, nb): string {
 		const num = n;
@@ -63,17 +63,15 @@ export class TamCard extends LitElement {
 				'&trip_headsign=' +
 				this._config?.direction,
 		);
-		if (this._config) this._config.fetchedData = await response.json();
+		this.fetchedData = await response.json();
 	}
 
 	protected async waitFetchApi(): Promise<void> {
-		if (this._config) {
-			if (this._config.waitFetch === false) {
-				this._config.waitFetch = true;
-				this.fetchDataApi();
-				await this.sleep(20000);
-				this._config.waitFetch = false;
-			}
+		if (this.waitFetch === false) {
+			this.waitFetch = true;
+			this.fetchDataApi();
+			await this.sleep(20000);
+			this.waitFetch = false;
 		}
 	}
 
@@ -86,49 +84,51 @@ export class TamCard extends LitElement {
 
 		this.waitFetchApi();
 
-		if (!this._config.hasOwnProperty('fetchedData')) {
+		if (!this.fetchedData) {
 			return html`
 				<p class="dot-loading">
 					Chargement&nbsp<span>.</span><span>.</span><span>.</span><span>.</span><span>.</span>
 				</p>
 			`;
 		} else {
-			const proche = this._config.fetchedData['result'].time[0] == 'Proche !!';
+			const proche = this.fetchedData['result'].time[0] == 'Proche !!';
 			const noConversion =
-				this._config.fetchedData['result'].time[0] == 'Proche !!' ||
-				this._config.fetchedData['result'].time[0] == 'Indisponible' ||
-				this._config.fetchedData['result'].time[0] == 'Fin de service';
+				this.fetchedData['result'].time[0] == 'Proche !!' ||
+				this.fetchedData['result'].time[0] == 'Indisponible' ||
+				this.fetchedData['result'].time[0] == 'Fin de service';
 
-			if (this._config.fetchedData['result'].time.length > 1) {
+			if (this.fetchedData['result'].time.length > 1) {
 				return html`
 					<ha-card tabindex="0" aria-label="TAM">
 						<div
 							id="states"
-							style="background-color: ${this._config.fetchedData['result'].color};"
+							style="background-color: ${this.fetchedData['result'].color};"
 							class="${proche ? 'card-content clignote' : 'card-content'}"
 						>
 							<div class="flex">
 								<div class="badge">
-									<ha-icon icon="${this._config.fetchedData['result'].icon || 'mdi:tram'}"></ha-icon>
+									<ha-icon icon="${this.fetchedData['result'].icon || 'mdi:tram'}"></ha-icon>
 								</div>
 								<div class="text cap info flexAlign">
-									<div>${this._config.fetchedData['result'].stop.toLowerCase()}</div>
+									<div>${this.fetchedData['result'].stop.toLowerCase()}</div>
 									&nbsp&nbsp
 									<div class="">➜</div>
 									&nbsp&nbsp
-									<div>${this._config.fetchedData['result'].direction.toLowerCase()}</div>
+									<div>${this.fetchedData['result'].direction.toLowerCase()}</div>
 								</div>
 
 								<div class="text right flexAlign">
 									<div>
 										${noConversion
-											? this._config.fetchedData['result'].time[0]
-											: this.timeConvert(this._config.fetchedData['result'].time[0], 2)}
+											? this.fetchedData['result'].time[0]
+											: this.timeConvert(this.fetchedData['result'].time[0], 2)}
 									</div>
 									&nbsp&nbsp&nbsp
 									<div class="bold">|</div>
 									&nbsp&nbsp&nbsp
-									<div>${this.timeConvert(this._config.fetchedData['result'].time[1], 2)}</div>
+									<div>
+										${this.timeConvert(this.fetchedData['result'].time[1], 2)}
+									</div>
 								</div>
 							</div>
 						</div>
@@ -139,27 +139,29 @@ export class TamCard extends LitElement {
 					<ha-card tabindex="0" aria-label="TAM">
 						<div
 							id="states"
-							style="background-color: ${this._config.fetchedData['result'].color};"
+							style="background-color: ${this.fetchedData['result'].color};"
 							class="${proche ? 'card-content clignote' : 'card-content'}"
 						>
 							<div class="flex">
 								<div class="badge">
-									<ha-icon icon="${this._config.fetchedData['result'].icon || 'mdi:tram'}"></ha-icon>
+									<ha-icon icon="${this.fetchedData['result'].icon || 'mdi:tram'}"></ha-icon>
 								</div>
 								<div class="text cap info flexAlign">
-									<div class="">${this._config.fetchedData['result'].stop.toLowerCase()}</div>
+									<div class="">
+										${this.fetchedData['result'].stop.toLowerCase()}
+									</div>
 									&nbsp&nbsp
 									<div class="">➜</div>
 									&nbsp&nbsp
 									<div class="text">
-										${this._config.fetchedData['result'].direction.toLowerCase()}
+										${this.fetchedData['result'].direction.toLowerCase()}
 									</div>
 								</div>
 								<div class="text right flexAlign">
 									<div class="">
 										${noConversion
-											? this._config.fetchedData['result'].time
-											: this.timeConvert(this._config.fetchedData['result'].time[0], 1)}
+											? this.fetchedData['result'].time
+											: this.timeConvert(this.fetchedData['result'].time[0], 1)}
 									</div>
 								</div>
 							</div>

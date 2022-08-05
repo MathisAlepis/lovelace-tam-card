@@ -6,11 +6,10 @@ import { TamCardConfig } from './types';
 export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 	@property() public hass?: HomeAssistant;
 	@property() private _config?: TamCardConfig;
-	@property() private _toggle?: boolean;
+	@property() private allCourses = {};
 
 	public setConfig(config: TamCardConfig): void {
 		this._config = config;
-		this._config.waitFetch2 = false;
 		this.fetchDataApi();
 	}
 
@@ -41,11 +40,12 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 			const uniq = [...new Set(tab)];
 			res[o.stop_name.toString()] = uniq;
 		});
-		if (this._config) this._config.allCourses = res;
+		this.allCourses = res;
+		this.render();
 	}
 
 	protected render(): TemplateResult | void {
-		if (!this.hass || !this._config || !this._config.allCourses) {
+		if (!this.hass || !this._config) {
 			return html`
 				<div class="card-config">
 					<div class="description">
@@ -55,11 +55,12 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 			`;
 		}
 
-		const allStop = Object.keys(this._config.allCourses);
+		const allStop = Object.keys(this.allCourses);
+
 		allStop.sort();
 
 		let direction;
-		if (this._config.stop) direction = this._config.allCourses[this._config.stop];
+		if (this._config.stop) direction = this.allCourses[this._config.stop];
 
 		return html`
 			<div class="card-config">
@@ -135,7 +136,7 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 		return css`
 			.card-config {
 				width: 95%;
-				height: 100%
+				height: 100%;
 				margin: auto;
 			}
 			.option {
@@ -147,7 +148,7 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 				padding: 1em;
 				margin: auto;
 				max-width: 40em;
-				font-size: 1em
+				font-size: 1em;
 			}
 			ha-select {
 				padding: 1em;
