@@ -1,16 +1,13 @@
+[![HACS: Custom](https://img.shields.io/badge/HACS-Custom-orange?style=for-the-badge)](https://github.com/custom-components/hacs) [![License: MIT](https://img.shields.io/github/license/MathisAlepis/lovelace-tam-card?style=for-the-badge)](https://opensource.org/licenses/MIT) ![GitHub release (latest by date)](https://img.shields.io/github/v/release/MathisAlepis/lovelace-tam-card?style=for-the-badge) ![Maintenance](https://img.shields.io/maintenance/yes/2022?style=for-the-badge)
+
 # TAM Card
 
-La carte TAM Montpellier affiche les horaires des prochains TRAM / Bus d'un arrêt défini.
+Montpellier Lovelace TAM card displays next two crossing times of the tramway or bus in Montpellier, France.
+
+This is build with the [unofficial API](https://github.com/MathisAlepis/montpellier-tam-api-time). The API get's [csv files](https://data.montpellier3m.fr/dataset/offre-de-transport-tam-en-temps-reel) from official TAM services of city of Montpellier and "lovelace tam card" display's this data.
+
 
 ![Screenshot](/screenshot.png?raw=true 'Example Card')
-
-[![GitHub Release][releases-shield]][releases]
-[![License][license-shield]](LICENSE.md)
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
-
-
-![Project Maintenance][maintenance-shield]
-[![GitHub Activity][commits-shield]][commits]
 
 ## Options
 
