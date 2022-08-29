@@ -2,5 +2,5 @@
   "name": "TAM Card",
   "render_readme": true,
   "filename": "tam-card.js"
-  "country": "FR",
+  "country": ["FR"],
 }
