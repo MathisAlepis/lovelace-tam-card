@@ -7,7 +7,7 @@ Montpellier Lovelace TAM card displays next two crossing times of the tramway or
 This is build with the [unofficial API](https://github.com/MathisAlepis/montpellier-tam-api-time). The API get's [csv files](https://data.montpellier3m.fr/dataset/offre-de-transport-tam-en-temps-reel) from official TAM services of city of Montpellier and "lovelace tam card" display's this data.
 
 
-![Screenshot](/screenshot.png?raw=true 'Example Card')
+![Screenshot](https://raw.githubusercontent.com/MathisAlepis/lovelace-tam-card/main/screenshot.png 'Example Card')
 
 ## Options
 
