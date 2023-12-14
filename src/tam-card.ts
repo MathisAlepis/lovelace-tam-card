@@ -6,8 +6,12 @@ import './editor';
 import { TamCardConfig } from './types';
 import { CARD_VERSION } from './const';
 
+import { color } from './color';
+import { icon } from './icon';
+
 import { localize } from './localize/localize';
 
+import moment from 'moment-timezone';
 /* eslint no-console: 0 */
 console.info(
 	`%c	TAM-CARD \n%c	${localize('common.version')} ${CARD_VERSION}	`,
@@ -52,18 +56,103 @@ export class TamCard extends LitElement {
 		else return rminutes + ' min';
 	}
 
+	protected parseCSV(str, delimiter = ';'): string[][] {
+		const headers = str
+			.slice(0, str.indexOf('\n'))
+			.trim()
+			.split(delimiter);
+		const rows = str
+			.slice(str.indexOf('\n') + 1)
+			.trim()
+			.split(/\r\n|\n|\r/);
+
+		const arr = rows.map(function(row) {
+			const values = row.split(delimiter);
+			const el = headers.reduce(function(object, header, index) {
+				object[header] = values[index];
+				return object;
+			}, {});
+			return el;
+		});
+		for (let index = 0; index < arr.length; index++) {
+			if (arr[index].trip_headsign === 'GARCIA LORCA') {
+				if (arr[index].direction_id === '0') {
+					arr[index].trip_headsign = 'GARCIA LORCA SENS A';
+				} else {
+					arr[index].trip_headsign = 'GARCIA LORCA SENS B';
+				}
+			}
+		}
+		return arr;
+	}
+
 	protected sleep(ms): unknown {
 		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
+	protected parseCourseTam(result, query): object {
+		const res = {};
+		const time: string[] = [];
+		const now = moment(new Date()).tz('Europe/Paris');
+
+		if (result.length === 0) {
+			res['time'] = ['Fin de service'];
+			res['stop'] = query.stop_name;
+			res['direction'] = query.trip_headsign;
+			res['icon'] = icon[0];
+			res['color'] = color[0];
+		} else {
+			for (const course of result) {
+				const fullDateOfTimeCourse = moment(new Date()).tz('Europe/Paris');
+				const [hours, minutes, seconds] = course.departure_time.split(':');
+				if (hours >= '00' && hours <= '03' && (now.hour() == 22 || now.hour() == 23))
+					fullDateOfTimeCourse.add(1, 'days');
+				fullDateOfTimeCourse.set({ hour: hours, minute: minutes, second: seconds });
+				if (fullDateOfTimeCourse > now) {
+					const min = fullDateOfTimeCourse.diff(now, 'minutes');
+					time.push(min.toString());
+				}
+			}
+			if (time.length === 0) {
+				time.push('Indisponible');
+				res['time'] = time;
+			} else {
+				const sortedTime = time.sort(function(a: any, b: any) {
+					return a - b;
+				});
+				for (let i = 0; i < sortedTime.length; i++) {
+					if (parseInt(sortedTime[i]) < 2) {
+						sortedTime[i] = 'Proche !!';
+					}
+				}
+				res['time'] = [...new Set(sortedTime)];
+			}
+			res['stop'] = result[0].stop_name;
+			res['direction'] = result[0].trip_headsign;
+			res['icon'] = icon[result[0].route_short_name];
+			res['color'] = color[result[0].route_short_name];
+		}
+		return res;
+	}
+
 	protected async fetchDataApi(): Promise<void> {
-		const response = await fetch(
-			'https://montpellier-tam-api-time.vercel.app/api/query?stop_name=' +
-				this._config?.stop +
-				'&trip_headsign=' +
-				this._config?.direction,
+		const tamCSV = await (
+			await fetch(
+				'https://cors-proxy-tam.herokuapp.com/http://data.montpellier3m.fr/sites/default/files/ressources/TAM_MMM_TpsReel.csv',
+				{
+					mode: 'cors',
+					headers: {
+						'Access-Control-Allow-Origin': '*',
+					},
+				},
+			)
+		).text();
+		const filters = { stop_name: this._config?.stop, trip_headsign: this._config?.direction };
+		const records = this.parseCSV(tamCSV);
+		const resultToParse = records.filter(r =>
+			Object.keys(filters).every(key => r[key] == filters[key].toUpperCase()),
 		);
-		this.fetchedData = await response.json();
+		this.fetchedData = { result: this.parseCourseTam(resultToParse, filters) };
 	}
 
 	protected async waitFetchApi(): Promise<void> {
