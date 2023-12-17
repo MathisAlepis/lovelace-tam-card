@@ -11,16 +11,20 @@ The APP get's [csv files](https://data.montpellier3m.fr/dataset/offre-de-transpo
 
 ## Options
 
-| Name      | Type    | Requirement  | Description        | Default           |
-| --------- | ------- | ------------ | ------------------ | ----------------- |
-| type      | string  | **Required** | `custom:tam-card`  | `custom:tam-card` |
-| stop      | string  | **Required** | Arrêt              | `PABLO PICASSO`   |
-| direction | string  | **Required** | Direction          | `LATTES CENTRE`   |
+| Name				| Type		| Requirement		| Description			| Default			|
+| ----------------- | --------- | ----------------- | --------------------- | ----------------- |
+| type				|	string	|	**Required**	| `custom:tam-card`		| `custom:tam-card`	|
+| stop				|	string	|	**Required**	| Arrêt					| `PABLO PICASSO`	|
+| direction 		|	string	|	**Required**	| Direction				| `LATTES CENTRE`	|
+| textColor			|	string	|	**NO**			| Text Color			| `auto` or ` ` 	|
+| backgroundColor	|	string	|	**NO**			| Background Color		| `auto` or ` ` 	|
 
-## Developing with Rollup
+Leave the 'textColor' and 'BackgroundColor' fields empty (or enter 'auto') so that the color is automatically assigned according to the line.
+
+## Developing
 
 1. Fork and clone the repository.
-2. Open the folder and run `npm build` when it's ready.
+2. Open the folder and run `npm run-script build` when it's ready.
 3. The compiled `.js` file will be accessible at dist folder
 4. On a running Home Assistant installation copy the compiled file to /www/community/XXXXX/
 5. Add the ressouces to Home Assistant Lovelace

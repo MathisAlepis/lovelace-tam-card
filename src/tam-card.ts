@@ -10,7 +10,7 @@ import { color } from './color';
 import { icon } from './icon';
 
 import { localize } from './localize/localize';
-
+import validateColor from 'validate-color';
 import moment from 'moment-timezone';
 /* eslint no-console: 0 */
 console.info(
@@ -66,7 +66,7 @@ export class TamCard extends LitElement {
 			.trim()
 			.split(/\r\n|\n|\r/);
 
-		const arr = rows.map(function(row) {
+		const arr = rows?.map(function(row) {
 			const values = row.split(delimiter);
 			const el = headers.reduce(function(object, header, index) {
 				object[header] = values[index];
@@ -90,6 +90,22 @@ export class TamCard extends LitElement {
 		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
+	protected checkBackgroundColor(number): string {
+		if (this._config?.backgroundColor) {
+			if (this._config?.backgroundColor !== 'auto')
+				return validateColor(this._config?.backgroundColor) ? this._config?.backgroundColor : color[number];
+		}
+		return color[number];
+	}
+
+	protected checkTextColor(defaultColor): string {
+		if (this._config?.textColor) {
+			if (this._config?.textColor !== 'auto')
+				return validateColor(this._config?.textColor) ? this._config?.textColor : defaultColor;
+		}
+		return defaultColor;
+	}
+
 	protected parseCourseTam(result, query): object {
 		const res = {};
 		const time: string[] = [];
@@ -100,7 +116,8 @@ export class TamCard extends LitElement {
 			res['stop'] = query.stop_name;
 			res['direction'] = query.trip_headsign;
 			res['icon'] = icon[0];
-			res['color'] = color[0];
+			res['backgroundColor'] = this.checkBackgroundColor(0);
+			res['textColor'] = this.checkTextColor('black');
 		} else {
 			for (const course of result) {
 				const fullDateOfTimeCourse = moment(new Date()).tz('Europe/Paris');
@@ -130,7 +147,8 @@ export class TamCard extends LitElement {
 			res['stop'] = result[0].stop_name;
 			res['direction'] = result[0].trip_headsign;
 			res['icon'] = icon[result[0].route_short_name];
-			res['color'] = color[result[0].route_short_name];
+			res['backgroundColor'] = this.checkBackgroundColor(result[0].route_short_name);
+			res['textColor'] = this.checkTextColor('black');
 		}
 		return res;
 	}
@@ -180,43 +198,44 @@ export class TamCard extends LitElement {
 				</p>
 			`;
 		} else {
-			const proche = this.fetchedData['result'].time[0] == 'Proche !!';
+			const proche = this.fetchedData['result']?.time[0] == 'Proche !!';
 			const noConversion =
-				this.fetchedData['result'].time[0] == 'Proche !!' ||
-				this.fetchedData['result'].time[0] == 'Indisponible' ||
-				this.fetchedData['result'].time[0] == 'Fin de service';
+				this.fetchedData['result']?.time[0] == 'Proche !!' ||
+				this.fetchedData['result']?.time[0] == 'Indisponible' ||
+				this.fetchedData['result']?.time[0] == 'Fin de service';
 
-			if (this.fetchedData['result'].time.length > 1) {
+			if (this.fetchedData['result']?.time.length > 1) {
 				return html`
 					<ha-card tabindex="0" aria-label="TAM">
 						<div
 							id="states"
-							style="background-color: ${this.fetchedData['result'].color};"
+							style="background-color: ${this.fetchedData['result']?.backgroundColor}; color: ${this
+								.fetchedData['result']?.textColor}"
 							class="${proche ? 'card-content clignote' : 'card-content'}"
 						>
 							<div class="flex">
 								<div class="badge">
-									<ha-icon icon="${this.fetchedData['result'].icon || 'mdi:tram'}"></ha-icon>
+									<ha-icon icon="${this.fetchedData['result']?.icon || 'mdi:tram'}"></ha-icon>
 								</div>
 								<div class="text cap info flexAlign">
-									<div>${this.fetchedData['result'].stop.toLowerCase()}</div>
+									<div>${this.fetchedData['result']?.stop.toLowerCase()}</div>
 									&nbsp&nbsp
 									<div class="">➜</div>
 									&nbsp&nbsp
-									<div>${this.fetchedData['result'].direction.toLowerCase()}</div>
+									<div>${this.fetchedData['result']?.direction.toLowerCase()}</div>
 								</div>
 
 								<div class="text right flexAlign">
 									<div>
 										${noConversion
-											? this.fetchedData['result'].time[0]
-											: this.timeConvert(this.fetchedData['result'].time[0], 2)}
+											? this.fetchedData['result']?.time[0]
+											: this.timeConvert(this.fetchedData['result']?.time[0], 2)}
 									</div>
 									&nbsp&nbsp&nbsp
 									<div class="bold">|</div>
 									&nbsp&nbsp&nbsp
 									<div>
-										${this.timeConvert(this.fetchedData['result'].time[1], 2)}
+										${this.timeConvert(this.fetchedData['result']?.time[1], 2)}
 									</div>
 								</div>
 							</div>
@@ -228,29 +247,30 @@ export class TamCard extends LitElement {
 					<ha-card tabindex="0" aria-label="TAM">
 						<div
 							id="states"
-							style="background-color: ${this.fetchedData['result'].color};"
+							style="background-color: ${this.fetchedData['result']?.backgroundColor}; color: ${this
+								.fetchedData['result']?.textColor}"
 							class="${proche ? 'card-content clignote' : 'card-content'}"
 						>
 							<div class="flex">
 								<div class="badge">
-									<ha-icon icon="${this.fetchedData['result'].icon || 'mdi:tram'}"></ha-icon>
+									<ha-icon icon="${this.fetchedData['result']?.icon || 'mdi:tram'}"></ha-icon>
 								</div>
 								<div class="text cap info flexAlign">
 									<div class="">
-										${this.fetchedData['result'].stop.toLowerCase()}
+										${this.fetchedData['result']?.stop.toLowerCase()}
 									</div>
 									&nbsp&nbsp
 									<div class="">➜</div>
 									&nbsp&nbsp
 									<div class="text">
-										${this.fetchedData['result'].direction.toLowerCase()}
+										${this.fetchedData['result']?.direction.toLowerCase()}
 									</div>
 								</div>
 								<div class="text right flexAlign">
 									<div class="">
 										${noConversion
-											? this.fetchedData['result'].time
-											: this.timeConvert(this.fetchedData['result'].time[0], 1)}
+											? this.fetchedData['result']?.time
+											: this.timeConvert(this.fetchedData['result']?.time[0], 1)}
 									</div>
 								</div>
 							</div>
@@ -271,7 +291,6 @@ export class TamCard extends LitElement {
 				flex: 1 1 0%;
 			}
 			.card-content {
-				color: black;
 				border-radius: 0.3em;
 			}
 			.flexAlign {

@@ -1,6 +1,6 @@
 {
   "name": "tam-card",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Lovelace tam-card",
   "keywords": [
     "home-assistant",
@@ -20,7 +20,8 @@
     "home-assistant-js-websocket": "^4.4.0",
     "lit-element": "^2.2.1",
     "lit-html": "^1.1.2",
-    "moment-timezone": "^0.5.37"
+    "moment-timezone": "^0.5.37",
+    "validate-color": "^2.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.6.4",

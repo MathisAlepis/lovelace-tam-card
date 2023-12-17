@@ -29,6 +29,22 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 		return '';
 	}
 
+	get _backgroundColor(): string {
+		if (this._config) {
+			return this._config.backgroundColor || '';
+		}
+
+		return '';
+	}
+
+	get _textColor(): string {
+		if (this._config) {
+			return this._config.textColor || '';
+		}
+
+		return '';
+	}
+
 	protected parseCSV(str, delimiter = ';'): string[][] {
 		const headers = str
 			.slice(0, str.indexOf('\n'))
@@ -122,7 +138,29 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 						préférence entre lundi et vendredi aux alentour de 12h.
 					</p>
 				</div>
-				<div class="option">
+				<div class="option1">
+					<div class="values">
+						<ha-textfield
+							label="Couleur du fond"
+							@input=${this._valueChanged}
+							.configValue=${'backgroundColor'}
+							.value=${this._backgroundColor}
+							@closed=${(ev): void => ev.stopPropagation()}
+						>
+						</ha-textfield>
+					</div>
+					<div class="values">
+						<ha-textfield
+							label="Couleur du texte"
+							@input=${this._valueChanged}
+							.configValue=${'textColor'}
+							.value=${this._textColor}
+							@closed=${(ev): void => ev.stopPropagation()}
+						>
+						</ha-textfield>
+					</div>
+				</div>
+				<div class="option2">
 					<div class="values">
 						<ha-select
 							label="Arrêt"
@@ -191,7 +229,12 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 				height: 100%;
 				margin: auto;
 			}
-			.option {
+			.option1 {
+				display: flex;
+				margin: auto;
+				height: auto;
+			}
+			.option2 {
 				display: flex;
 				margin: auto;
 				height: 71vh;
@@ -202,8 +245,10 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 				max-width: 40em;
 				font-size: 1em;
 			}
-			ha-select {
+			ha-select,
+			ha-textfield {
 				padding: 1em;
+				width: 16em;
 			}
 			:host {
 				--mdc-menu-max-height: 65vh;
