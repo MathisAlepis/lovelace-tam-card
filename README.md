@@ -2,6 +2,8 @@
 
 # TAM Card
 
+## 🟥 Suite à un changement de fonctionnement sur la transmission des données du côté de la métropole de Montpellier la "lovelace-card" ne fonctionne plus. Je vais développer une nouvelle version pour prendre en compte leur changement au plus vite.🟥
+
 Montpellier Lovelace TAM card displays next two crossing times of the tramway or bus in Montpellier, France.
 
 The APP get's [csv files](https://data.montpellier3m.fr/dataset/offre-de-transport-tam-en-temps-reel) from official TAM services of city of Montpellier and "lovelace tam card" display's this data.
