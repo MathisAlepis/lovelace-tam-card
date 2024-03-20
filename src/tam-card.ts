@@ -3,6 +3,7 @@ import { HomeAssistant, LovelaceCardEditor } from 'custom-card-helpers';
 
 import './editor';
 
+import { getData } from './utils';
 import { TamCardConfig } from './types';
 import { CARD_VERSION } from './const';
 
@@ -54,36 +55,6 @@ export class TamCard extends LitElement {
 		if (rhours != 0) return rhours + ' h ' + rminutes + ' min';
 		else if (nb === 1) return rminutes + ' minutes';
 		else return rminutes + ' min';
-	}
-
-	protected parseCSV(str, delimiter = ';'): string[][] {
-		const headers = str
-			.slice(0, str.indexOf('\n'))
-			.trim()
-			.split(delimiter);
-		const rows = str
-			.slice(str.indexOf('\n') + 1)
-			.trim()
-			.split(/\r\n|\n|\r/);
-
-		const arr = rows?.map(function(row) {
-			const values = row.split(delimiter);
-			const el = headers.reduce(function(object, header, index) {
-				object[header] = values[index];
-				return object;
-			}, {});
-			return el;
-		});
-		for (let index = 0; index < arr.length; index++) {
-			if (arr[index].trip_headsign === 'GARCIA LORCA') {
-				if (arr[index].direction_id === '0') {
-					arr[index].trip_headsign = 'GARCIA LORCA SENS A';
-				} else {
-					arr[index].trip_headsign = 'GARCIA LORCA SENS B';
-				}
-			}
-		}
-		return arr;
 	}
 
 	protected sleep(ms): unknown {
@@ -154,22 +125,8 @@ export class TamCard extends LitElement {
 	}
 
 	protected async fetchDataApi(): Promise<void> {
-		const tamCSV = await (
-			await fetch(
-				'https://cors-proxy-tam.herokuapp.com/http://data.montpellier3m.fr/sites/default/files/ressources/TAM_MMM_TpsReel.csv',
-				{
-					mode: 'cors',
-					headers: {
-						'Access-Control-Allow-Origin': '*',
-					},
-				},
-			)
-		).text();
 		const filters = { stop_name: this._config?.stop, trip_headsign: this._config?.direction };
-		const records = this.parseCSV(tamCSV);
-		const resultToParse = records.filter(r =>
-			Object.keys(filters).every(key => r[key] == filters[key].toUpperCase()),
-		);
+		const resultToParse = await getData(this._config?.stop, this._config?.direction);
 		this.fetchedData = { result: this.parseCourseTam(resultToParse, filters) };
 	}
 

@@ -2,15 +2,13 @@ import { LitElement, html, property, TemplateResult, CSSResult, css } from 'lit-
 import { HomeAssistant, fireEvent, LovelaceCardEditor } from 'custom-card-helpers';
 
 import { TamCardConfig } from './types';
-
+import { getAllStops, getTripHeadsign } from './utils';
 export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 	@property() public hass?: HomeAssistant;
 	@property() private _config?: TamCardConfig;
-	@property() private allCourses = {};
 
-	public setConfig(config: TamCardConfig): void {
+	public async setConfig(config: TamCardConfig): Promise<void> {
 		this._config = config;
-		this.fetchDataApi();
 	}
 
 	get _stop(): string {
@@ -45,73 +43,6 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 		return '';
 	}
 
-	protected parseCSV(str, delimiter = ';'): string[][] {
-		const headers = str
-			.slice(0, str.indexOf('\n'))
-			.trim()
-			.split(delimiter);
-		const rows = str
-			.slice(str.indexOf('\n') + 1)
-			.trim()
-			.split(/\r\n|\n|\r/);
-
-		const arr = rows.map(function(row) {
-			const values = row.split(delimiter);
-			const el = headers.reduce(function(object, header, index) {
-				object[header] = values[index];
-				return object;
-			}, {});
-			return el;
-		});
-		const allCourses = arr.map(o => ({
-			stop_name: o.stop_name,
-			trip_headsign: o.trip_headsign,
-			direction_id: o.direction_id,
-		}));
-		for (let index = 0; index < allCourses.length; index++) {
-			if (allCourses[index].trip_headsign === 'GARCIA LORCA') {
-				if (allCourses[index].direction_id === '1') {
-					allCourses[index].trip_headsign = 'GARCIA LORCA SENS A';
-				} else {
-					allCourses[index].trip_headsign = 'GARCIA LORCA SENS B';
-				}
-			}
-			delete allCourses[index].direction_id;
-		}
-		return allCourses;
-	}
-
-	protected async fetchDataApi(): Promise<void> {
-		const res = {};
-		const tamCSV = await (
-			await fetch(
-				'https://cors-proxy-tam.herokuapp.com/http://data.montpellier3m.fr/sites/default/files/ressources/TAM_MMM_TpsReel.csv',
-				{
-					mode: 'cors',
-					headers: {
-						'Access-Control-Allow-Origin': '*',
-					},
-				},
-			)
-		).text();
-
-		const records = this.parseCSV(tamCSV);
-		const result: Array<any> = records.filter(
-			(v, i, a) => a.findIndex(v2 => ['stop_name', 'trip_headsign'].every(k => v2[k] === v[k])) === i,
-		);
-
-		result.map(o => {
-			const tab = [];
-			const item = result.filter(item => item.stop_name === o.stop_name);
-			item.map((j: { trip_headsign: never }) => tab.push(j.trip_headsign));
-			const uniq = [...new Set(tab)];
-			res[o.stop_name.toString()] = uniq;
-		});
-
-		this.allCourses = res;
-		this.render();
-	}
-
 	protected render(): TemplateResult | void {
 		if (!this.hass || !this._config) {
 			return html`
@@ -122,20 +53,16 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 				</div>
 			`;
 		}
-
-		const allStop = Object.keys(this.allCourses);
-
-		allStop.sort();
-
+		const allStop = getAllStops();
 		let direction;
-		if (this._config.stop) direction = this.allCourses[this._config.stop];
+		if (this._config.stop) direction = getTripHeadsign(this._config.stop);
 
 		return html`
 			<div class="card-config">
 				<div class="description">
 					<p>
 						Si votre arrêt / direction n'est pas disponible après le chargement, réessayer ultérieurement de
-						préférence entre lundi et vendredi aux alentour de 12h.
+						préférence entre lundi et vendredi aux alentour de 1dddddddddddd2h.
 					</p>
 				</div>
 				<div class="option1">
