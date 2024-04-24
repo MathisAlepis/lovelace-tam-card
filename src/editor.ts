@@ -62,7 +62,7 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 				<div class="description">
 					<p>
 						Si votre arrêt / direction n'est pas disponible après le chargement, réessayer ultérieurement de
-						préférence entre lundi et vendredi aux alentour de 1dddddddddddd2h.
+						préférence entre lundi et vendredi aux alentour de 12h.
 					</p>
 				</div>
 				<div class="option1">
