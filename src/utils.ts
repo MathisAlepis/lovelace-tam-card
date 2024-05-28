@@ -24,8 +24,8 @@ export function getAllStops(): string[] {
 	return allStop;
 }
 
-export function timestampToTime(timestamp: any): string {
-	const date = new Date(timestamp.time * 1000);
+export function timestampToTime(timestamp: number): string {
+	const date = new Date(timestamp * 1000);
 	const hours = date.getHours();
 	const minutes = `0${date.getMinutes()}`.slice(-2);
 	const seconds = `0${date.getSeconds()}`.slice(-2);
@@ -58,6 +58,13 @@ function searchStopAndDirection(stopName, direction): any {
 	return results;
 }
 
+function numberOrLongToNumber(data: any): number {
+	if (data.hasOwnProperty('low')) {
+		return data.low;
+	}
+	return data;
+}
+
 export async function findData(direction): Promise<any> {
 	if (direction === undefined || direction.length === 0 || direction === null) return null;
 	const response = await fetch(
@@ -84,16 +91,12 @@ export async function findData(direction): Promise<any> {
 					entity.tripUpdate.stopTimeUpdate.forEach(stop => {
 						if (direction.stop_id === stop.stopId) {
 							if (stop.arrival && stop.arrival.time) {
-								if (typeof stop.arrival.time === 'number' && stop.arrival.time > Date.now() / 1000) {
-									if (entity.tripUpdate && entity.tripUpdate.trip) {
-										const trip = showTrip(entity.tripUpdate.trip);
-										if (trip === direction.trip_headsign) {
-											data.push({
-												trip: trip,
-												departure_time: timestampToTime(stop.arrival),
-											});
-										}
-									}
+								const timestamp = numberOrLongToNumber(stop.arrival.time);
+								if (timestamp > Date.now() / 1000) {
+									data.push({
+										trip: direction.trip_headsign,
+										departure_time: timestampToTime(timestamp),
+									});
 								}
 							}
 						}
