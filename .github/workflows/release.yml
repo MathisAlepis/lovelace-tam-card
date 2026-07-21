@@ -1,66 +1,110 @@
-name: Prepare draft release bundle
+name: Publish version
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing tag and draft release to receive tam-card.js (for example v4.0.0)
-        required: true
-        type: string
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
 
 permissions:
+  actions: read
   contents: write
 
+concurrency:
+  group: publish-main-version
+  cancel-in-progress: false
+
 jobs:
-  attach-bundle:
-    name: Build and attach tam-card.js to a draft
+  publish-version:
+    name: Tag and publish tam-card.js
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
-      - name: Check out the released tag
+      - name: Check out the validated commit
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v6
         with:
           node-version: 24
 
-      - name: Enable Yarn 4.12 through Corepack
-        run: |
-          corepack enable
-          corepack prepare yarn@4.12.0 --activate
-          yarn --version
-
-      - name: Verify release tag matches package version
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          VERSION="${RELEASE_TAG#v}"
-          PACKAGE_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
-          test "$VERSION" = "$PACKAGE_VERSION"
-
-      - name: Require an existing draft release
+      - name: Decide whether this package version needs publishing
+        id: version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          DRAFT="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.draft')"
-          test "$DRAFT" = "true"
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::package.json version must use stable semantic versioning (for example 4.0.1)."
+            exit 1
+          fi
 
-      - name: Install dependencies
-        run: yarn install --immutable
+          TAG="v${VERSION}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Build production bundle
-        run: yarn build
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "create_tag=false" >> "$GITHUB_OUTPUT"
+            echo "${TAG} is already published; no new release is required." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
-      - name: Verify release bundle
-        run: test -s dist/tam-card.js
+          if git rev-parse --verify --quiet "refs/tags/${TAG}" >/dev/null; then
+            TAG_SHA="$(git rev-list -n 1 "$TAG")"
+            if [[ "$TAG_SHA" != "$RELEASE_SHA" ]]; then
+              echo "::error::${TAG} already points to ${TAG_SHA}. Increment package.json before publishing new code."
+              exit 1
+            fi
+            echo "create_tag=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "create_tag=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Attach bundle without publishing the draft
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Download the exact bundle produced by CI
+        if: steps.version.outputs.publish == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: tam-card-${{ github.event.workflow_run.head_sha }}
+          path: release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Verify the release asset
+        if: steps.version.outputs.publish == 'true'
+        run: test -s release/tam-card.js
+
+      - name: Create and push the version tag
+        if: steps.version.outputs.publish == 'true' && steps.version.outputs.create_tag == 'true'
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" "$RELEASE_SHA" -m "TAM Card ${RELEASE_TAG}"
+          git push origin "refs/tags/${RELEASE_TAG}"
+
+      - name: Publish the GitHub release
+        if: steps.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: gh release upload "$RELEASE_TAG" "dist/tam-card.js#tam-card.js" --clobber
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" "release/tam-card.js#tam-card.js" \
+            --verify-tag \
+            --latest \
+            --generate-notes \
+            --title "TAM Card ${RELEASE_TAG}"
+          echo "Published ${RELEASE_TAG} with tam-card.js." >> "$GITHUB_STEP_SUMMARY"

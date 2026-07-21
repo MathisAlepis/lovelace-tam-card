@@ -2,7 +2,7 @@
 
 Ce projet suit [Semantic Versioning](https://semver.org/lang/fr/) et s’inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
-## [4.0.0] - Non publié
+## [4.0.0] - 2026-07-22
 
 ### Ajouté
 
