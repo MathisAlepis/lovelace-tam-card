@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HeraultApiError } from '../../src/api/errors';
 import {
   APPROACHING_THRESHOLD_SECONDS,
+  predictionFromDepartureTime,
   TamDataController,
   type TamDataControllerHost,
   type TamDepartureClient,
@@ -122,7 +123,7 @@ describe('TamDataController', () => {
     expect(controller.state.status).toBe('ready');
     expect(controller.state.departures[0]).toMatchObject({
       remainingSeconds: 65,
-      remainingMinutes: 2,
+      remainingMinutes: 1,
       isApproaching: true,
     });
 
@@ -133,6 +134,64 @@ describe('TamDataController', () => {
     expect(client.getDepartures).toHaveBeenCalledTimes(1);
 
     controller.hostDisconnected();
+  });
+
+  it('keeps the countdown aligned with departure_time when the API snapshot delay is older', async () => {
+    vi.setSystemTime(new Date('2026-07-21T21:01:16.000Z')); // 23:01:16 in Europe/Paris
+    const client: TamDepartureClient = {
+      getDepartures: vi.fn(async () => [
+        createDeparture(Date.now() + 1_084_000, {
+          departure_time: '23:17:04',
+          delay_sec: 1_084,
+        }),
+        createDeparture(Date.now() + 4_380_000, {
+          course_sae: 'after-midnight',
+          departure_time: '00:12:00',
+          delay_sec: 4_380,
+        }),
+      ]),
+    };
+    const { controller } = createController(client);
+    controller.setConfig(createConfig());
+    controller.hostConnected();
+    await controller.refresh();
+
+    expect(controller.state.departures).toEqual([
+      expect.objectContaining({ departure_time: '23:17:04', remainingSeconds: 948, remainingMinutes: 16 }),
+      expect.objectContaining({ departure_time: '00:12:00', remainingSeconds: 4_244, remainingMinutes: 71 }),
+    ]);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(controller.state.departures[0]?.remainingSeconds).toBe(947);
+    controller.hostDisconnected();
+  });
+
+  it('uses the displayed HH:mm minute boundary instead of rounding hidden seconds upward', async () => {
+    vi.setSystemTime(new Date('2026-07-21T21:10:35.000Z')); // 23:10:35 in Europe/Paris
+    const client: TamDepartureClient = {
+      getDepartures: vi.fn(async () => [
+        createDeparture(Date.now() + 8 * 60_000, {
+          departure_time: '23:17:52',
+          delay_sec: 8 * 60,
+        }),
+      ]),
+    };
+    const { controller } = createController(client);
+    controller.setConfig(createConfig());
+    controller.hostConnected();
+    await controller.refresh();
+
+    expect(controller.state.departures[0]).toMatchObject({
+      departure_time: '23:17:52',
+      remainingSeconds: 437,
+      remainingMinutes: 7,
+    });
+    controller.hostDisconnected();
+  });
+
+  it('uses delay_sec as a fallback when departure_time is not a valid clock', () => {
+    const fetchedAt = Date.now();
+    expect(predictionFromDepartureTime('not-a-time', fetchedAt, 75)).toBeUndefined();
   });
 
   it('clamps refresh intervals to 30-300 seconds', async () => {

@@ -11,6 +11,14 @@ export const LOCAL_TICK_INTERVAL_MS = 1_000;
 export const APPROACHING_THRESHOLD_SECONDS = 120;
 
 const MAX_SHARED_DEPARTURES = 5;
+const SECONDS_PER_DAY = 24 * 60 * 60;
+const PARIS_CLOCK_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Paris',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
 
 export type TamDataControllerStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
@@ -80,6 +88,11 @@ function cleanOptionalString(value: string | undefined): string | undefined {
   return cleaned ? cleaned : undefined;
 }
 
+/** Keep the relative label consistent with the HH:mm value shown below it. */
+function remainingClockMinutes(predictedAt: number, now: number): number {
+  return Math.max(0, Math.floor(predictedAt / 60_000) - Math.floor(now / 60_000));
+}
+
 function dataConfig(config: NormalizedTamCardConfig): DataConfig {
   return {
     stop: config.stop.trim(),
@@ -101,6 +114,55 @@ function configSignature(config: DataConfig | undefined): string {
     config.departures,
     config.refresh_interval,
   ]);
+}
+
+function parseClockSeconds(value: string): number | undefined {
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(value.trim());
+  if (!match) return undefined;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const seconds = Number(match[3] ?? 0);
+  if (hours > 23 || minutes > 59 || seconds > 59) return undefined;
+  return hours * 60 * 60 + minutes * 60 + seconds;
+}
+
+function parisClockSeconds(timestamp: number): number | undefined {
+  const parts = new Map(
+    PARIS_CLOCK_FORMATTER.formatToParts(new Date(timestamp)).map((part) => [part.type, Number(part.value)]),
+  );
+  const hours = parts.get('hour');
+  const minutes = parts.get('minute');
+  const seconds = parts.get('second');
+  if (hours === undefined || minutes === undefined || seconds === undefined) return undefined;
+
+  const milliseconds = ((timestamp % 1_000) + 1_000) % 1_000;
+  return hours * 60 * 60 + minutes * 60 + seconds + milliseconds / 1_000;
+}
+
+/**
+ * Resolve an API wall-clock time to the closest plausible service occurrence.
+ *
+ * Hérault Data's delay_sec is relative to the dataset snapshot (often one or
+ * two minutes older than the HTTP response). departure_time is the announced
+ * local Europe/Paris time, so it is the accurate display/countdown anchor.
+ * delay_sec is retained only to disambiguate today from the adjacent days.
+ */
+export function predictionFromDepartureTime(
+  departureTime: string,
+  fetchedAt: number,
+  approximateDelaySeconds: number,
+): number | undefined {
+  const targetSeconds = parseClockSeconds(departureTime);
+  const currentSeconds = parisClockSeconds(fetchedAt);
+  if (targetSeconds === undefined || currentSeconds === undefined) return undefined;
+
+  const sameDayDelta = targetSeconds - currentSeconds;
+  const candidates = [sameDayDelta - SECONDS_PER_DAY, sameDayDelta, sameDayDelta + SECONDS_PER_DAY];
+  const bestDelta = candidates.reduce((best, candidate) =>
+    Math.abs(candidate - approximateDelaySeconds) < Math.abs(best - approximateDelaySeconds) ? candidate : best,
+  );
+  return fetchedAt + bestDelta * 1_000;
 }
 
 /**
@@ -421,7 +483,11 @@ export class TamDataController implements ReactiveController {
   private normalizePrediction(departure: TamDeparture, fetchedAt: number): TamDeparture | undefined {
     const delaySeconds = Number(departure.delay_sec);
     const predictedAt = Number(departure.predicted_at);
-    const effectivePrediction = Number.isFinite(predictedAt) ? predictedAt : fetchedAt + delaySeconds * 1_000;
+    const clockPrediction = departure.departure_time
+      ? predictionFromDepartureTime(departure.departure_time, fetchedAt, delaySeconds)
+      : undefined;
+    const effectivePrediction =
+      clockPrediction ?? (Number.isFinite(predictedAt) ? predictedAt : fetchedAt + delaySeconds * 1_000);
 
     if (!Number.isFinite(delaySeconds) || delaySeconds < 0 || !Number.isFinite(effectivePrediction)) {
       return undefined;
@@ -440,7 +506,7 @@ export class TamDataController implements ReactiveController {
         return {
           ...departure,
           remainingSeconds,
-          remainingMinutes: Math.ceil(remainingSeconds / 60),
+          remainingMinutes: remainingClockMinutes(departure.predicted_at, now),
           isApproaching: remainingSeconds <= APPROACHING_THRESHOLD_SECONDS,
         };
       });

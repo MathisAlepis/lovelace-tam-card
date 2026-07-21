@@ -24,6 +24,7 @@ Ce projet suit [Semantic Versioning](https://semver.org/lang/fr/) et s’inspire
 - Source de version unique dans `package.json`.
 - Distribution HACS sous la forme d’un module unique `dist/tam-card.js`.
 - Workflow manuel limité à la construction et à l’ajout de `tam-card.js` à une release GitHub encore en brouillon.
+- Compte à rebours recalé sur `departure_time` en heure de Montpellier et sur la minute `HH:mm` affichée, avec gestion du passage de minuit et repli sur `delay_sec` lorsque l’heure est invalide.
 
 ### Compatibilité
 
