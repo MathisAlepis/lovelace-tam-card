@@ -1,4 +1,4 @@
-name: "Build"
+name: CI
 
 on:
   push:
@@ -7,14 +7,63 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Test build
+  quality-and-build:
+    name: Quality and production bundle
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - uses: actions/checkout@v1
-      - name: Build
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Enable Yarn 4.12 through Corepack
         run: |
-          npm install
-          npm run build
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
+          yarn --version
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Check formatting
+        run: yarn format:check
+
+      - name: Type-check
+        run: yarn typecheck
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Build production bundle
+        run: yarn build
+
+      - name: Verify HACS bundle
+        run: |
+          test -s dist/tam-card.js
+          git diff --exit-code -- dist/tam-card.js
+
+      - name: Upload production bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: tam-card-${{ github.sha }}
+          path: dist/tam-card.js
+          if-no-files-found: error
+          retention-days: 14

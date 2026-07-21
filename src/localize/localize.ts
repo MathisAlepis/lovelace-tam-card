@@ -1,27 +1,33 @@
-import * as en from './languages/en.json';
+import en from './languages/en.json';
+import fr from './languages/fr.json';
 
-const languages = {
-  en,
+interface TranslationTree {
+  [key: string]: string | TranslationTree;
+}
+
+const languages: Record<string, TranslationTree> = {
+  en: en as TranslationTree,
+  fr: fr as TranslationTree,
 };
 
-export function localize(string: string, search = '', replace = ''): string {
-  const section = string.split('.')[0];
-  const key = string.split('.')[1];
-
-  const lang = (localStorage.getItem('selectedLanguage') || 'en').replace(/['"]+/g, '').replace('-', '_');
-
-  let tranlated: string;
-
-  try {
-    tranlated = languages[lang][section][key];
-  } catch (e) {
-    tranlated = languages['en'][section][key];
+function resolve(tree: TranslationTree, key: string): string | undefined {
+  let current: string | TranslationTree | undefined = tree;
+  for (const segment of key.split('.')) {
+    if (typeof current === 'string' || current === undefined) return undefined;
+    current = current[segment];
   }
+  return typeof current === 'string' ? current : undefined;
+}
 
-  if (tranlated === undefined) tranlated = languages['en'][section][key];
+export function normalizeLanguage(language?: string): 'fr' | 'en' {
+  return language?.toLowerCase().startsWith('en') ? 'en' : 'fr';
+}
 
-  if (search !== '' && replace !== '') {
-    tranlated = tranlated.replace(search, replace);
-  }
-  return tranlated;
+export function localize(key: string, language?: string, variables: Record<string, string | number> = {}): string {
+  const selected = normalizeLanguage(language);
+  const value = resolve(languages[selected], key) ?? resolve(languages.fr, key) ?? resolve(languages.en, key) ?? key;
+  return Object.entries(variables).reduce(
+    (translated, [name, replacement]) => translated.replaceAll(`{${name}}`, String(replacement)),
+    value,
+  );
 }

@@ -1,32 +1,51 @@
-// See https://aka.ms/vscode-remote/devcontainer.json for format details.
+// Home Assistant + Node development environment maintained by custom-cards.
 {
-  "name": "Tam Card Development",
-  "image": "ludeeus/container:monster",
-  "context": "..",
-  "appPort": ["5000:5000", "9123:8123"],
-  "postCreateCommand": "npm install",
-  "runArgs": [
-    "-v",
-    "${env:HOME}${env:USERPROFILE}/.ssh:/tmp/.ssh" // This is added so you can push from inside the container
+  "name": "TAM Card Development",
+  "image": "ghcr.io/custom-cards/custom-card-devcontainer:latest",
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "mounts": [
+    "source=${localWorkspaceFolder}/dist,target=/config/www/workspace,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer,target=/config,type=bind"
   ],
-  "extensions": [
-    "github.vscode-pull-request-github",
-    "eamodio.gitlens",
-    "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
-    "bierner.lit-html",
-    "runem.lit-plugin",
-    "auchenberg.vscode-browser-preview",
-    "davidanson.vscode-markdownlint",
-    "redhat.vscode-yaml"
-  ],
-  "settings": {
-    "files.eol": "\n",
-    "editor.tabSize": 4,
-    "terminal.integrated.shell.linux": "/bin/bash",
-    "editor.formatOnPaste": false,
-    "editor.formatOnSave": true,
-    "editor.formatOnType": true,
-    "files.trimTrailingWhitespace": true
+  "forwardPorts": [8123, 5000],
+  "portsAttributes": {
+    "8123": {
+      "label": "Home Assistant",
+      "onAutoForward": "notify"
+    },
+    "5000": {
+      "label": "TAM Card dev bundle",
+      "onAutoForward": "silent"
+    }
+  },
+  "containerEnv": {
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "DEVCONTAINER": "1",
+    "HASS_USERNAME": "dev",
+    "HASS_PASSWORD": "dev",
+    "LOVELACE_REMOTE_FILES": "http://localhost:5000/tam-card.js"
+  },
+  "postCreateCommand": "container setup && corepack enable && corepack prepare yarn@4.12.0 --activate && yarn install --immutable",
+  "postStartCommand": "container launch & yarn start & wait",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.vscode-github-actions",
+        "github.vscode-pull-request-github",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bierner.lit-html",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "files.eol": "\n",
+        "editor.tabSize": 2,
+        "editor.formatOnSave": true,
+        "task.allowAutomaticTasks": "on"
+      }
+    }
   }
 }

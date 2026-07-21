@@ -1,6 +1,9 @@
 /node_modules/
+/.yarn/
+/coverage/
 /.rpt2_cache/
-package-lock.json
-/dist
-.vscode
+*.log
 .DS_Store
+.vscode/
+
+# Le bundle HACS et le lockfile sont volontairement versionnés.

@@ -1,0 +1,6 @@
+coverage/
+dist/
+node_modules/
+.yarn/
+src/data/route-styles.generated.ts
+yarn.lock
