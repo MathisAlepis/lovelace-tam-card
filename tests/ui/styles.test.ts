@@ -21,6 +21,8 @@ describe('TAM card responsive CSS contracts', () => {
   });
 
   it('disables every decorative loading and approaching animation when motion is reduced', () => {
+    expect(css).toContain('animation: tam-approaching-blink 1.2s steps(1, end) infinite');
+    expect(css).toContain('animation: tam-approaching-label-blink 1.2s steps(1, end) infinite');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.approaching-dot,[\s\S]*?\.skeleton\s*{[\s\S]*?animation:\s*none/,

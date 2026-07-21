@@ -212,7 +212,11 @@ export class TamCard extends LitElement {
 
         <div class="metadata" aria-hidden="true">
           ${approaching ? html`<span class="approaching-dot"></span>` : nothing}
-          ${approaching ? html`<span class="status-badge">${localize('card.approaching', this.language)}</span>` : nothing}
+          ${
+            approaching
+              ? html`<span class="status-badge approaching-badge">${localize('card.approaching', this.language)}</span>`
+              : nothing
+          }
           ${stale ? html`<span class="status-badge">${localize('card.stale', this.language)}</span>` : nothing}
           ${loading ? html`<span class="status-badge">↻</span>` : nothing}
           ${config.show_realtime_badge ? html`<span class="status-badge">${sourceLabel}</span>` : nothing}
@@ -224,7 +228,7 @@ export class TamCard extends LitElement {
   private renderDeparture(departure: LiveTamDeparture): TemplateResult {
     const label = this.departureTimeLabel(departure);
     return html`
-      <div class="departure">
+      <div class=${departure.isApproaching ? 'departure approaching-departure' : 'departure'}>
         <span class="time">${label}</span>
         ${
           this.config?.show_absolute_time && departure.departure_time

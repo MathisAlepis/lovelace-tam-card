@@ -170,7 +170,31 @@ export const cardStyles = css`
   }
 
   .approaching {
-    --tam-border: color-mix(in srgb, currentColor 62%, transparent);
+    --tam-border: var(--warning-color, #ff9800);
+  }
+
+  .approaching::after {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    box-sizing: border-box;
+    border: 3px solid var(--warning-color, #ff9800);
+    border-radius: inherit;
+    box-shadow: inset 0 0 18px color-mix(in srgb, var(--warning-color, #ff9800) 38%, transparent);
+    content: '';
+    pointer-events: none;
+    animation: tam-approaching-blink 1.2s steps(1, end) infinite;
+  }
+
+  .approaching-departure .time,
+  .approaching-badge {
+    animation: tam-approaching-label-blink 1.2s steps(1, end) infinite;
+  }
+
+  .approaching-badge {
+    color: #111;
+    background: var(--warning-color, #ff9800);
+    border-color: var(--warning-color, #ff9800);
   }
 
   .approaching-dot {
@@ -302,6 +326,28 @@ export const cardStyles = css`
     }
   }
 
+  @keyframes tam-approaching-blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0.12;
+    }
+  }
+
+  @keyframes tam-approaching-label-blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0.38;
+    }
+  }
+
   @keyframes tam-loading {
     to {
       background-position-x: -220%;
@@ -309,6 +355,9 @@ export const cardStyles = css`
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .approaching::after,
+    .approaching-departure .time,
+    .approaching-badge,
     .approaching-dot,
     .skeleton {
       animation: none;

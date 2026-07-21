@@ -171,7 +171,9 @@ describe('TAM card UI', () => {
     const shadow = cardShadow(card);
     expect(shadow.querySelector('ha-card')?.classList.contains('approaching')).toBe(true);
     expect(shadow.querySelector('.time')?.textContent?.trim()).toBe('À l’approche');
+    expect(shadow.querySelector('.departure')?.classList.contains('approaching-departure')).toBe(true);
     expect(shadow.querySelector('.approaching-dot')).not.toBeNull();
+    expect(shadow.querySelector('.approaching-badge')).not.toBeNull();
     expect([...shadow.querySelectorAll('.status-badge')].map((node) => node.textContent?.trim())).toContain(
       'À l’approche',
     );
