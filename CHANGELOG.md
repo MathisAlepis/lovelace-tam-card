@@ -15,6 +15,7 @@ Ce projet suit [Semantic Versioning](https://semver.org/lang/fr/) et s’inspire
 - Affichage responsive, badge temps réel/théorique, mode compact, heure absolue facultative et état discret « À l’approche ».
 - Traductions française et anglaise.
 - Table compacte de styles et types de lignes dérivée des GTFS officiels, avec générateur de développement et attribution ODbL.
+- Catalogue de styles contrôlé automatiquement chaque semaine, mis en cache dans le navigateur et prioritaire sur la table embarquée de secours.
 - Tests unitaires déterministes, contrôle API manuel facultatif et chaîne CI Node.js 24 / Yarn 4.
 - Validation HACS en catégorie `plugin` et artefact de CI `tam-card.js`.
 

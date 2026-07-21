@@ -8,11 +8,13 @@ export interface RoutePresentation {
   known: boolean;
 }
 
-interface GeneratedRouteStyle {
+export interface RouteStyleDefinition {
   route_color: string;
   route_text_color: string;
   route_type: number;
 }
+
+export type RouteStyleCatalog = Readonly<Record<string, RouteStyleDefinition>>;
 
 interface ParsedColor {
   readonly rgb: [number, number, number];
@@ -206,9 +208,13 @@ export function iconForRouteType(routeType?: number): string {
   return 'mdi:transit-connection-variant';
 }
 
-export function getRoutePresentation(line: string, themeColor = '#03A9F4'): RoutePresentation {
+export function getRoutePresentation(
+  line: string,
+  themeColor = '#03A9F4',
+  remoteStyles?: RouteStyleCatalog,
+): RoutePresentation {
   const key = line.trim().toUpperCase();
-  const style = (ROUTE_STYLES as Record<string, GeneratedRouteStyle>)[key];
+  const style = remoteStyles?.[key] ?? (ROUTE_STYLES as Record<string, RouteStyleDefinition>)[key];
   if (style) {
     return {
       background: style.route_color,

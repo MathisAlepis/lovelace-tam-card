@@ -14,6 +14,7 @@ import {
   validateConfig,
 } from './config';
 import { CARD_TAG, CARD_VERSION, EDITOR_TAG } from './const';
+import { RouteStyleController } from './data/route-style-controller';
 import { getRoutePresentation, readableTextColor } from './data/route-styles';
 import { type CacheLease, sharedTamCache } from './data/shared-cache';
 import { TamDataController, type LiveTamDeparture } from './data/tam-data-controller';
@@ -45,6 +46,7 @@ export class TamCard extends LitElement {
   @state() private language = 'fr';
 
   private readonly data = new TamDataController(this, heraultDataClient);
+  private readonly routeStyles = new RouteStyleController(this);
   private hassValue?: HomeAssistant;
   private themeSignature = '';
   private themePrimaryColor = '#03A9F4';
@@ -179,7 +181,7 @@ export class TamCard extends LitElement {
     loading: boolean,
   ): TemplateResult {
     const config = this.config as NormalizedTamCardConfig & { line: string; destination: string };
-    const route = getRoutePresentation(config.line, this.themePrimaryColor);
+    const route = getRoutePresentation(config.line, this.themePrimaryColor, this.routeStyles.styles);
     const background = config.background_color === 'auto' ? route.background : config.background_color;
     const text =
       config.text_color === 'auto'
@@ -248,7 +250,7 @@ export class TamCard extends LitElement {
     loading: boolean,
   ): TemplateResult {
     const config = this.config as NormalizedTamCardConfig & { line: string };
-    const route = getRoutePresentation(config.line, this.themePrimaryColor);
+    const route = getRoutePresentation(config.line, this.themePrimaryColor, this.routeStyles.styles);
     const background = config.background_color === 'auto' ? route.background : config.background_color;
     const text =
       config.text_color === 'auto'
@@ -427,7 +429,9 @@ export class TamCard extends LitElement {
     useRouteColor = false,
     retry = false,
   ): TemplateResult {
-    const route = this.config?.line ? getRoutePresentation(this.config.line, this.themePrimaryColor) : undefined;
+    const route = this.config?.line
+      ? getRoutePresentation(this.config.line, this.themePrimaryColor, this.routeStyles.styles)
+      : undefined;
     const styles = useRouteColor && route ? { '--tam-background': route.background, '--tam-text': route.text } : {};
     return html`
       <ha-card style=${styleMap(styles)} tabindex="0" aria-label=${`${title}. ${detail}`}>

@@ -63,6 +63,7 @@
     "test:coverage": "vitest run --coverage",
     "check": "yarn lint && yarn format:check && yarn typecheck && yarn test && yarn build",
     "check:api": "node scripts/check-api.mjs",
-    "update:route-styles": "node scripts/update-route-styles.mjs"
+    "update:route-styles": "node scripts/update-route-styles.mjs",
+    "update:route-catalog": "node scripts/update-route-styles.mjs --format json --output route-styles.json"
   }
 }

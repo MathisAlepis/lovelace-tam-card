@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
 const DOWNLOAD_TIMEOUT_MS = 30_000;
-const DEFAULT_OUTPUT = fileURLToPath(new globalThis.URL('../src/data/route-styles.generated.ts', import.meta.url));
+const DEFAULT_TYPESCRIPT_OUTPUT = fileURLToPath(
+  new globalThis.URL('../src/data/route-styles.generated.ts', import.meta.url),
+);
+const DEFAULT_JSON_OUTPUT = fileURLToPath(new globalThis.URL('../route-styles.json', import.meta.url));
 const SOURCES = [
   {
     name: 'GTFS urbain',
@@ -24,13 +27,15 @@ Downloads the official Montpellier GTFS archives and regenerates the committed
 route style table. The urban feed has priority when both feeds define a line.
 
 Options:
-  --output FILE              Output file (default: src/data/route-styles.generated.ts)
+  --format typescript|json   Output format (default: typescript)
+  --output FILE              Output file (default depends on the format)
   --help                     Show this help`);
 }
 
 function parseArguments(argv) {
   const options = {
-    output: DEFAULT_OUTPUT,
+    format: 'typescript',
+    output: undefined,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -40,7 +45,7 @@ function parseArguments(argv) {
       process.exit(0);
     }
 
-    if (argument !== '--output') {
+    if (argument !== '--output' && argument !== '--format') {
       throw new Error(`Unknown option: ${argument}`);
     }
 
@@ -50,9 +55,16 @@ function parseArguments(argv) {
     }
     index += 1;
 
-    options.output = resolve(value);
+    if (argument === '--output') {
+      options.output = resolve(value);
+    } else if (value === 'typescript' || value === 'json') {
+      options.format = value;
+    } else {
+      throw new Error(`Unsupported format: ${value}`);
+    }
   }
 
+  options.output ??= options.format === 'json' ? DEFAULT_JSON_OUTPUT : DEFAULT_TYPESCRIPT_OUTPUT;
   return options;
 }
 
@@ -311,6 +323,26 @@ ${entries}
 `;
 }
 
+function renderJsonCatalog(routes) {
+  return `${JSON.stringify(
+    {
+      version: 1,
+      routes: Object.fromEntries(
+        routes.map((route) => [
+          route.routeShortName.trim().toUpperCase(),
+          {
+            route_color: route.routeColor,
+            route_text_color: route.routeTextColor,
+            route_type: route.routeType,
+          },
+        ]),
+      ),
+    },
+    null,
+    2,
+  )}\n`;
+}
+
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   const downloadedSources = [];
@@ -326,11 +358,12 @@ async function main() {
     throw new Error('No route styles were found');
   }
 
-  const generated = renderGeneratedFile(downloadedSources, routes);
+  const generated =
+    options.format === 'json' ? renderJsonCatalog(routes) : renderGeneratedFile(downloadedSources, routes);
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, generated, 'utf8');
   console.info(
-    `Wrote ${routes.length} route styles to ${options.output} (${ignoredDuplicates} duplicate definitions ignored).`,
+    `Wrote ${routes.length} route styles as ${options.format} to ${options.output} (${ignoredDuplicates} duplicate definitions ignored).`,
   );
 }
 

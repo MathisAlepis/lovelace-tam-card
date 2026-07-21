@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { readableTextColor } from '../../src/data/route-styles';
+import { getRoutePresentation, readableTextColor } from '../../src/data/route-styles';
 import { cardStyles } from '../../src/styles';
 
 describe('TAM card responsive CSS contracts', () => {
@@ -41,5 +41,14 @@ describe('TAM card responsive CSS contracts', () => {
   it('derives readable automatic text from HSL and named background colors', () => {
     expect(readableTextColor('hsl(0 0% 100%)')).toBe('#000000');
     expect(readableTextColor('navy')).toBe('#FFFFFF');
+  });
+
+  it('prefers a validated remote route style and keeps the embedded table as fallback', () => {
+    expect(
+      getRoutePresentation('NEW', '#03A9F4', {
+        NEW: { route_color: '#123456', route_text_color: '#FFFFFF', route_type: 3 },
+      }),
+    ).toMatchObject({ background: '#123456', text: '#FFFFFF', icon: 'mdi:bus', known: true });
+    expect(getRoutePresentation('3', '#03A9F4', {})).toMatchObject({ background: '#C8D400', known: true });
   });
 });

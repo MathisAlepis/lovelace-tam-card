@@ -18,7 +18,7 @@ La version 4 conserve l’organisation visuelle historique — ligne à gauche, 
 - compte à rebours local actualisé chaque seconde et état discret « À l’approche » ;
 - rafraîchissement réseau toutes les 60 secondes par défaut, suspendu quand l’onglet est masqué ;
 - cache partagé entre cartes, dernier résultat valide conservé en cas d’erreur et catalogue hors-ligne ;
-- styles des lignes issus d’une petite dérivation GTFS committée, sans base de plusieurs mégaoctets ;
+- styles des lignes actualisés chaque semaine depuis les GTFS officiels, avec repli local immédiat ;
 - thèmes clair/sombre, couleurs personnalisées, mode compact, responsive mobile et réduction des animations ;
 - français et anglais ;
 - compatibilité progressive avec les configurations historiques de la carte.
@@ -171,7 +171,7 @@ La carte interroge directement le jeu [`tam_mmm_tpsreel`](https://www.herault-da
 - distinction entre données temps réel et horaires théoriques ;
 - timeout réseau, annulation propre, traitement spécifique de HTTP 429 et des réponses invalides.
 
-Les instances demandant le même mode et la même combinaison arrêt/ligne/destination/sens partagent la même promesse et un cache de courte durée. En mode agrégé, une fenêtre bornée de 100 enregistrements est validée et dédupliquée avant de retenir localement le prochain passage de chaque destination. La déconnexion d’une carte ne coupe pas une requête encore utilisée par une autre. Les listes de l’éditeur disposent d’un cache plus long, versionné dans `localStorage` ; les horaires live ne sont jamais conservés durablement sur disque.
+Les instances demandant le même mode et la même combinaison arrêt/ligne/destination/sens partagent la même promesse et un cache de courte durée. En mode agrégé, une fenêtre bornée de 100 enregistrements est validée et dédupliquée avant de retenir localement les passages demandés pour chaque destination. La déconnexion d’une carte ne coupe pas une requête encore utilisée par une autre. Les listes de l’éditeur disposent d’un cache plus long, versionné dans `localStorage` ; les horaires live ne sont jamais conservés durablement sur disque.
 
 Quand le navigateur passe hors connexion ou que l’API échoue, le dernier résultat valide en mémoire reste affiché avec un indicateur de donnée ancienne. Sans résultat antérieur, un message d’erreur explicite est présenté. Un résultat vide signifie « aucun passage annoncé » et n’est pas automatiquement transformé en « fin de service ».
 
@@ -179,9 +179,11 @@ Le rafraîchissement démarre à la connexion de la carte, s’arrête lorsqu’
 
 ## Couleurs et types de lignes
 
-Hérault Data ne fournit pas les couleurs ou le type GTFS dans le jeu temps réel. TAM Card embarque donc uniquement une table compacte `route_short_name` → couleur de fond, couleur de texte et `route_type`, générée depuis les GTFS urbain et suburbain officiels. Le tram (`route_type: 0`), le bus (`3`) et le transport générique utilisent des icônes adaptées ; une ligne inconnue reçoit la couleur de thème Home Assistant et un contraste noir/blanc calculé.
+Hérault Data ne fournit pas les couleurs ou le type GTFS dans le jeu temps réel. TAM Card utilise donc un catalogue compact `route_short_name` → couleur de fond, couleur de texte et `route_type`, dérivé des GTFS urbain et suburbain officiels. Le tram (`route_type: 0`), le bus (`3`) et le transport générique utilisent des icônes adaptées ; une ligne inconnue reçoit la couleur de thème Home Assistant et un contraste noir/blanc calculé.
 
-La table committée permet au build et à la carte de fonctionner sans télécharger les GTFS. Sa date, ses empreintes et sa méthode de régénération figurent dans [DATA_LICENSE.md](DATA_LICENSE.md).
+L’Action GitHub **Refresh route catalogue** vérifie les GTFS chaque lundi et met à jour [`route-styles.json`](route-styles.json) seulement lorsque les styles changent. La carte télécharge ce petit JSON au démarrage, le partage entre toutes ses instances et le conserve une semaine dans `localStorage`. Une page ouverte en continu relance également la vérification au bout d’une semaine.
+
+Les archives GTFS elles-mêmes ne sont jamais téléchargées par Home Assistant. Si GitHub ou le réseau est indisponible, la table intégrée au bundle est utilisée immédiatement ; les passages et l’affichage ne sont donc jamais bloqués par cette actualisation. Après l’installation de cette version, une nouvelle ligne ou couleur publiée dans le GTFS ne demande plus de nouvelle compilation de TAM Card.
 
 ## Limites connues
 
@@ -189,7 +191,7 @@ La table committée permet au build et à la carte de fonctionner sans télécha
 - La couverture temps réel peut être principalement urbaine selon le contenu actuel du jeu de données.
 - Les alertes officielles, perturbations et positions de véhicules ne sont pas disponibles dans cette carte frontend pure.
 - La carte dépend de l’accès CORS du navigateur à Hérault Data. Une politique réseau, un bloqueur ou une indisponibilité du portail peut empêcher les mises à jour.
-- Les noms et associations de lignes suivent les données publiées. Une évolution du réseau peut nécessiter une nouvelle sélection dans l’éditeur et une régénération facultative des styles.
+- Les noms et associations de lignes suivent les données publiées. Une évolution inhabituelle du format GTFS peut demander une adaptation du générateur, mais une nouvelle ligne ou couleur est prise en charge automatiquement.
 - Le mode toutes les destinations ne montre que les destinations possédant au moins un passage dans la fenêtre live bornée renvoyée par la source ; il n’invente pas une ligne « aucun passage » à partir du catalogue.
 - Le cache live est volontairement volatil : après un rechargement complet hors connexion, aucun ancien horaire n’est inventé ou relu depuis `localStorage`.
 
@@ -218,18 +220,19 @@ yarn install --immutable
 
 ### Commandes
 
-| Commande                   | Rôle                                                                         |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| `yarn start`               | Build de développement, surveillance des fichiers et serveur du bundle.      |
-| `yarn lint`                | Vérification ESLint.                                                         |
-| `yarn format:check`        | Vérification Prettier sans modifier les fichiers.                            |
-| `yarn typecheck`           | Vérification TypeScript sans émission.                                       |
-| `yarn test`                | Tests Vitest déterministes, sans réseau.                                     |
-| `yarn test:coverage`       | Tests avec rapport de couverture.                                            |
-| `yarn build`               | Bundle de production minifié dans `dist/tam-card.js`.                        |
-| `yarn check`               | Lint, format, types, tests et build en une commande.                         |
-| `yarn check:api`           | Contrat manuel facultatif contre l’API publique réelle.                      |
-| `yarn update:route-styles` | Régénération manuelle de la petite table GTFS ; jamais appelée par le build. |
+| Commande                    | Rôle                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| `yarn start`                | Build de développement, surveillance des fichiers et serveur du bundle.      |
+| `yarn lint`                 | Vérification ESLint.                                                         |
+| `yarn format:check`         | Vérification Prettier sans modifier les fichiers.                            |
+| `yarn typecheck`            | Vérification TypeScript sans émission.                                       |
+| `yarn test`                 | Tests Vitest déterministes, sans réseau.                                     |
+| `yarn test:coverage`        | Tests avec rapport de couverture.                                            |
+| `yarn build`                | Bundle de production minifié dans `dist/tam-card.js`.                        |
+| `yarn check`                | Lint, format, types, tests et build en une commande.                         |
+| `yarn check:api`            | Contrat manuel facultatif contre l’API publique réelle.                      |
+| `yarn update:route-styles`  | Régénération manuelle de la table TypeScript embarquée.                      |
+| `yarn update:route-catalog` | Régénération du JSON consommé chaque semaine par les cartes déjà installées. |
 
 La CI utilise Node.js 24, Yarn 4.12, `yarn install --immutable`, tous les contrôles ci-dessus, vérifie l’existence de `dist/tam-card.js`, lance la validation HACS et conserve le bundle comme artefact.
 
@@ -296,7 +299,7 @@ departures_per_destination: 3
 show_absolute_time: true
 ```
 
-The source generally updates about once per minute; the countdown ticks locally each second. Identical cards share in-flight requests and a short-lived memory cache. The last valid result can be shown as stale after an error, while editor catalogues have a versioned `localStorage` fallback. Live departures are never persisted indefinitely. Legacy `direction`, `textColor`, and `backgroundColor` fields are accepted but deprecated; new configuration uses `destination`, `direction_id`, `text_color`, and `background_color`.
+The source generally updates about once per minute; the countdown ticks locally each second. Identical cards share in-flight requests and a short-lived memory cache. The last valid result can be shown as stale after an error, while editor catalogues have a versioned `localStorage` fallback. Route colours and types are refreshed weekly from a small CORS-enabled JSON catalogue generated by GitHub Actions from the official GTFS feeds; the bundled table remains the offline fallback. Live departures are never persisted indefinitely. Legacy `direction`, `textColor`, and `backgroundColor` fields are accepted but deprecated; new configuration uses `destination`, `direction_id`, `text_color`, and `background_color`.
 
 Known limitations are upstream coverage, browser/CORS availability, and the absence of service alerts or vehicle positions in this frontend-only version. Code is MIT; transport data and the compact GTFS-derived route style table require attribution under ODbL: **Data: Montpellier Méditerranée Métropole / TaM; live access through Hérault Data.** See [DATA_LICENSE.md](DATA_LICENSE.md).
 

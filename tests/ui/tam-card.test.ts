@@ -24,6 +24,10 @@ interface ControllerDouble {
 }
 
 const controllerHarness = vi.hoisted(() => ({ instances: [] as unknown[] }));
+const routeStyleHarness = vi.hoisted(() => ({
+  styles: undefined as
+    Record<string, { route_color: string; route_text_color: string; route_type: number }> | undefined,
+}));
 
 vi.mock('../../src/data/tam-data-controller', () => {
   class TamDataController {
@@ -46,6 +50,18 @@ vi.mock('../../src/data/tam-data-controller', () => {
 
   return { TamDataController };
 });
+
+vi.mock('../../src/data/route-style-controller', () => ({
+  RouteStyleController: class RouteStyleController {
+    public constructor(host: { addController(controller: object): void }) {
+      host.addController(this);
+    }
+
+    public get styles(): typeof routeStyleHarness.styles {
+      return routeStyleHarness.styles;
+    }
+  },
+}));
 
 import { HeraultApiError } from '../../src/api';
 import { TamCard } from '../../src/tam-card';
@@ -112,6 +128,7 @@ function cardShadow(card: TamCard): ShadowRoot {
 describe('TAM card UI', () => {
   beforeEach(() => {
     controllerHarness.instances.length = 0;
+    routeStyleHarness.styles = undefined;
   });
 
   it('renders an actionable local message for an incomplete configuration', async () => {
@@ -178,6 +195,23 @@ describe('TAM card UI', () => {
     );
     expect(shadow.querySelector('.stop')?.textContent).toBe('PABLO PICASSO');
     expect(shadow.querySelector('.destination')?.textContent).toBe('LATTES CENTRE');
+  });
+
+  it('uses the weekly route catalogue before the embedded fallback', async () => {
+    routeStyleHarness.styles = {
+      '3': { route_color: '#123456', route_text_color: '#FFFFFF', route_type: 3 },
+    };
+    const card = await mountCard();
+    await renderState(card, {
+      status: 'ready',
+      departures: [departure(4)],
+      isLoading: false,
+      isStale: false,
+    });
+
+    const root = cardShadow(card).querySelector('ha-card');
+    expect(root?.getAttribute('style')).toContain('--tam-background:#123456');
+    expect((root?.querySelector('.mode-icon') as { icon?: string } | null)?.icon).toBe('mdi:bus');
   });
 
   it('uses a restrained approaching state and the “À l’approche” wording', async () => {

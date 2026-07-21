@@ -11,16 +11,17 @@ Le code source de TAM Card est distribué sous licence MIT (voir [LICENSE](LICEN
 
 Ces bases sont mises à disposition selon l’[Open Database License 1.0 (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/). Les éventuels droits sur le contenu individuel d’une base restent soumis aux conditions applicables publiées par le producteur.
 
-Le fichier [`src/data/route-styles.generated.ts`](src/data/route-styles.generated.ts) est une petite base dérivée : il ne conserve que l’identifiant commercial, les couleurs et le type GTFS des lignes. Il est donc documenté et distribué comme dérivé ODbL, séparément du code sous licence MIT. Ses métadonnées indiquent les URL sources et l’empreinte SHA-256 de chaque `routes.txt` utilisé. Les en-têtes HTTP volatils ne sont pas inscrits afin qu’un contenu GTFS identique produise un fichier strictement identique.
+Les fichiers [`src/data/route-styles.generated.ts`](src/data/route-styles.generated.ts) et [`route-styles.json`](route-styles.json) sont de petites bases dérivées : ils ne conservent que l’identifiant commercial, les couleurs et le type GTFS des lignes. Ils sont donc documentés et distribués comme dérivés ODbL, séparément du code sous licence MIT. Les métadonnées de la table TypeScript indiquent les URL sources et l’empreinte SHA-256 de chaque `routes.txt` utilisé. Le catalogue JSON est déterministe et ne contient aucun horodatage, afin qu’il ne change que lorsque les styles utiles changent réellement.
 
 Les réponses de temps réel ne sont ni incorporées au dépôt ni redistribuées durablement : elles sont interrogées directement par le navigateur et conservées brièvement en mémoire. Toute redistribution publique d’une base adaptée ou enrichie doit conserver l’attribution et respecter les obligations de partage à l’identique de l’ODbL.
 
 ## Régénération
 
-La table a été régénérée le **21 juillet 2026**. Pour la mettre à jour à partir des sources officielles :
+Le catalogue JSON a été régénéré le **22 juillet 2026**. Pour mettre à jour les deux formats à partir des sources officielles :
 
 ```bash
 yarn update:route-styles
+yarn update:route-catalog
 ```
 
-Le script télécharge seulement les deux archives nécessaires, extrait `routes.txt`, valide les champs retenus, trie les lignes de façon déterministe et donne priorité au GTFS urbain lorsqu’un même identifiant est présent dans les deux flux. Cette commande de maintenance n’est jamais exécutée pendant le build ; le bundle reste reproductible et ne dépend pas du réseau.
+Le script télécharge seulement les deux archives nécessaires, extrait `routes.txt`, valide les champs retenus, trie les lignes de façon déterministe et donne priorité au GTFS urbain lorsqu’un même identifiant est présent dans les deux flux. Chaque lundi, l’Action GitHub **Refresh route catalogue** régénère le JSON et ne pousse un commit que si son contenu change. Ces commandes ne sont jamais exécutées pendant le build ; le bundle reste reproductible et ne dépend pas du réseau.
