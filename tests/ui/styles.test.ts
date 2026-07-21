@@ -20,6 +20,15 @@ describe('TAM card responsive CSS contracts', () => {
     expect(css).toContain('@container (max-width: 330px)');
   });
 
+  it('uses a separate responsive two-column destination overview', () => {
+    expect(css).toMatch(/\.destination-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto/);
+    expect(css).toMatch(/\.destination-name > span:last-child\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
+    expect(css).toMatch(
+      /@container \(max-width: 480px\)[\s\S]*?\.destination-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
+    expect(css).toMatch(/\.destination-time \+ \.destination-time\s*\{[\s\S]*?border-left/);
+  });
+
   it('disables every decorative loading and approaching animation when motion is reduced', () => {
     expect(css).toContain('animation: tam-approaching-blink 1.2s steps(1, end) infinite');
     expect(css).toContain('animation: tam-approaching-label-blink 1.2s steps(1, end) infinite');

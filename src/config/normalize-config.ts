@@ -1,9 +1,11 @@
-import type { DirectionId, NormalizedTamCardConfig } from '../types';
+import type { DirectionId, NormalizedTamCardConfig, TamDisplayMode } from '../types';
 import {
   DEFAULT_TAM_CARD_CONFIG,
   MAX_DEPARTURES,
+  MAX_DEPARTURES_PER_DESTINATION,
   MAX_REFRESH_INTERVAL,
   MIN_DEPARTURES,
+  MIN_DEPARTURES_PER_DESTINATION,
   MIN_REFRESH_INTERVAL,
   TAM_CARD_TYPE,
 } from './defaults';
@@ -168,6 +170,9 @@ const normalizedDirectionId = (value: unknown): DirectionId | undefined => {
   return undefined;
 };
 
+const normalizedDisplayMode = (value: unknown): TamDisplayMode =>
+  value === 'all_destinations' ? 'all_destinations' : DEFAULT_TAM_CARD_CONFIG.display_mode;
+
 const normalizedInteger = (value: unknown, fallback: number, minimum: number, maximum: number): number => {
   const parsed =
     typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : Number.NaN;
@@ -205,18 +210,27 @@ const normalizedBackgroundColor = (value: unknown, fallback: string, cssSupports
  */
 export const normalizeConfig = (input: unknown, options: NormalizeConfigOptions = {}): NormalizedTamCardConfig => {
   const config = isRecord(input) ? input : {};
-  const destinationSource = normalizedText(config.destination) || normalizedText(config.direction);
+  const displayMode = normalizedDisplayMode(config.display_mode);
+  const destinationSource =
+    displayMode === 'destination' ? normalizedText(config.destination) || normalizedText(config.direction) : '';
   const modernBackground = config.background_color ?? config.backgroundColor;
   const modernText = config.text_color ?? config.textColor;
 
   const normalized: NormalizedTamCardConfig = {
     type: TAM_CARD_TYPE,
     stop: normalizedText(config.stop),
+    display_mode: displayMode,
     departures: normalizedInteger(
       config.departures,
       DEFAULT_TAM_CARD_CONFIG.departures,
       MIN_DEPARTURES,
       MAX_DEPARTURES,
+    ),
+    departures_per_destination: normalizedInteger(
+      config.departures_per_destination,
+      DEFAULT_TAM_CARD_CONFIG.departures_per_destination,
+      MIN_DEPARTURES_PER_DESTINATION,
+      MAX_DEPARTURES_PER_DESTINATION,
     ),
     refresh_interval: normalizedInteger(
       config.refresh_interval,

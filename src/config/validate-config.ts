@@ -2,11 +2,12 @@ import type { NormalizedTamCardConfig } from '../types';
 import { TAM_CARD_TYPE } from './defaults';
 import { normalizeConfig, type NormalizeConfigOptions } from './normalize-config';
 
-export type ConfigIssueCode = 'invalid-config' | 'invalid-type' | 'missing-stop' | 'missing-destination';
+export type ConfigIssueCode =
+  'invalid-config' | 'invalid-type' | 'missing-stop' | 'missing-line' | 'missing-destination';
 
 export interface ConfigIssue {
   code: ConfigIssueCode;
-  field: 'config' | 'type' | 'stop' | 'destination';
+  field: 'config' | 'type' | 'stop' | 'line' | 'destination';
   message: string;
 }
 
@@ -55,7 +56,14 @@ export const validateConfig = (input: unknown, options: NormalizeConfigOptions =
       message: 'Sélectionnez un arrêt.',
     });
   }
-  if (!config.destination) {
+  if (config.display_mode === 'all_destinations' && !config.line) {
+    errors.push({
+      code: 'missing-line',
+      field: 'line',
+      message: 'Sélectionnez une ligne.',
+    });
+  }
+  if (config.display_mode === 'destination' && !config.destination) {
     errors.push({
       code: 'missing-destination',
       field: 'destination',
@@ -75,10 +83,10 @@ export const assertValidConfig = (input: unknown, options: NormalizeConfigOption
 };
 
 export const isConfigComplete = (config: NormalizedTamCardConfig): boolean =>
-  Boolean(config.stop && config.line && config.destination);
+  Boolean(config.stop && config.line && (config.display_mode === 'all_destinations' || config.destination));
 
 export const needsLineInference = (config: NormalizedTamCardConfig): boolean =>
-  Boolean(config.stop && config.destination && !config.line);
+  Boolean(config.display_mode === 'destination' && config.stop && config.destination && !config.line);
 
 export type LineInferenceErrorCode = 'line-not-found' | 'ambiguous-line';
 

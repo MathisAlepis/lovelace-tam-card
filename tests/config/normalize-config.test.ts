@@ -11,10 +11,12 @@ describe('normalizeConfig', () => {
         {
           type: 'custom:tam-card',
           stop: ' Pablo Picasso ',
+          display_mode: 'destination',
           line: 3,
           destination: ' Lattes Centre ',
           direction_id: '1',
           departures: 4,
+          departures_per_destination: 3,
           refresh_interval: 90,
           background_color: '#102030',
           text_color: 'white',
@@ -28,10 +30,12 @@ describe('normalizeConfig', () => {
     ).toEqual({
       type: 'custom:tam-card',
       stop: 'Pablo Picasso',
+      display_mode: 'destination',
       line: '3',
       destination: 'Lattes Centre',
       direction_id: 1,
       departures: 4,
+      departures_per_destination: 3,
       refresh_interval: 90,
       background_color: '#102030',
       text_color: 'white',
@@ -57,6 +61,7 @@ describe('normalizeConfig', () => {
 
     expect(normalized).toMatchObject({
       stop: 'Pablo Picasso',
+      display_mode: 'destination',
       destination: 'Lattes Centre',
       direction_id: 0,
       background_color: 'rgb(10, 20, 30)',
@@ -79,7 +84,9 @@ describe('normalizeConfig', () => {
 
   it('applies defaults and bounds numeric settings', () => {
     expect(normalizeConfig({ stop: 'A', destination: 'B' })).toMatchObject({
+      display_mode: 'destination',
       departures: 2,
+      departures_per_destination: 1,
       refresh_interval: 60,
       background_color: 'auto',
       text_color: 'auto',
@@ -100,6 +107,35 @@ describe('normalizeConfig', () => {
       departures: 2,
       refresh_interval: 60,
     });
+    expect(normalizeConfig({ departures_per_destination: -5 })).toMatchObject({
+      departures_per_destination: 1,
+    });
+    expect(normalizeConfig({ departures_per_destination: 99 })).toMatchObject({
+      departures_per_destination: 3,
+    });
+  });
+
+  it('normalizes the opt-in all-destinations mode without changing legacy defaults', () => {
+    expect(
+      normalizeConfig({
+        stop: 'Pablo Picasso',
+        line: '3',
+        display_mode: 'all_destinations',
+        destination: 'Lattes Centre',
+        direction: 'Juvignac',
+        direction_id: 1,
+      }),
+    ).toMatchObject({
+      stop: 'Pablo Picasso',
+      line: '3',
+      display_mode: 'all_destinations',
+      direction_id: 1,
+      departures_per_destination: 1,
+    });
+    expect(
+      normalizeConfig({ stop: 'A', line: '3', display_mode: 'all_destinations', destination: 'B' }),
+    ).not.toHaveProperty('destination');
+    expect(normalizeConfig({ display_mode: 'unknown' })).toMatchObject({ display_mode: 'destination' });
   });
 
   it('ignores invalid colors using an injectable pure validator', () => {

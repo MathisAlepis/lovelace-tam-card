@@ -51,10 +51,12 @@ function createConfig(overrides: Partial<NormalizedTamCardConfig> = {}): Normali
   return {
     type: 'custom:tam-card',
     stop: 'PABLO PICASSO',
+    display_mode: 'destination',
     line: '3',
     destination: 'LATTES CENTRE',
     direction_id: 1,
     departures: 2,
+    departures_per_destination: 1,
     refresh_interval: 60,
     background_color: 'auto',
     text_color: 'auto',
@@ -186,6 +188,119 @@ describe('TamDataController', () => {
       remainingSeconds: 437,
       remainingMinutes: 7,
     });
+    controller.hostDisconnected();
+  });
+
+  it('shows one nearest passage per destination and promotes its backup without an early request', async () => {
+    const client: TamDepartureClient = {
+      getDepartures: vi.fn(async () => [
+        createDeparture(Date.now() + 1_500, { course_sae: 'lattes-first', trip_headsign: 'LATTES CENTRE' }),
+        createDeparture(Date.now() + 30_000, { course_sae: 'lattes-next', trip_headsign: 'lattes centre' }),
+        createDeparture(Date.now() + 20_000, { course_sae: 'juvignac', trip_headsign: 'JUVIGNAC' }),
+        createDeparture(Date.now() + 25_000, { course_sae: 'perols', trip_headsign: 'PEROLS ETANG' }),
+        createDeparture(Date.now() + 40_000, { course_sae: 'mosson', trip_headsign: 'MOSSON' }),
+      ]),
+    };
+    const { controller } = createController(client);
+    controller.setConfig(
+      createConfig({
+        display_mode: 'all_destinations',
+        destination: undefined,
+        direction_id: 0,
+        departures: 2,
+      }),
+    );
+    controller.hostConnected();
+    await controller.refresh();
+
+    expect(controller.state.departures.map((departure) => departure.course_sae)).toEqual([
+      'lattes-first',
+      'juvignac',
+      'perols',
+      'mosson',
+    ]);
+    expect(client.getDepartures).toHaveBeenCalledWith(
+      expect.objectContaining({ all_destinations: true, destination: undefined, direction_id: 0 }),
+      expect.anything(),
+    );
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(controller.state.departures.map((departure) => departure.course_sae)).toEqual([
+      'juvignac',
+      'perols',
+      'lattes-next',
+      'mosson',
+    ]);
+    expect(client.getDepartures).toHaveBeenCalledTimes(1);
+    controller.hostDisconnected();
+  });
+
+  it('shows up to three chronological passages for every destination', async () => {
+    const client: TamDepartureClient = {
+      getDepartures: vi.fn(async () => [
+        createDeparture(Date.now() + 5 * 60_000, { course_sae: 'lattes-1', trip_headsign: 'LATTES CENTRE' }),
+        createDeparture(Date.now() + 7 * 60_000, { course_sae: 'juvignac-1', trip_headsign: 'JUVIGNAC' }),
+        createDeparture(Date.now() + 15 * 60_000, { course_sae: 'lattes-2', trip_headsign: 'lattes centre' }),
+        createDeparture(Date.now() + 17 * 60_000, { course_sae: 'juvignac-2', trip_headsign: 'JUVIGNAC' }),
+        createDeparture(Date.now() + 25 * 60_000, { course_sae: 'lattes-3', trip_headsign: 'LATTES CENTRE' }),
+        createDeparture(Date.now() + 27 * 60_000, { course_sae: 'juvignac-3', trip_headsign: 'JUVIGNAC' }),
+        createDeparture(Date.now() + 35 * 60_000, { course_sae: 'lattes-4', trip_headsign: 'LATTES CENTRE' }),
+      ]),
+    };
+    const { controller } = createController(client);
+    controller.setConfig(
+      createConfig({
+        display_mode: 'all_destinations',
+        destination: undefined,
+        departures_per_destination: 3,
+      }),
+    );
+    controller.hostConnected();
+    await controller.refresh();
+
+    expect(controller.state.departures.map((departure) => departure.course_sae)).toEqual([
+      'lattes-1',
+      'juvignac-1',
+      'lattes-2',
+      'juvignac-2',
+      'lattes-3',
+      'juvignac-3',
+    ]);
+    controller.hostDisconnected();
+  });
+
+  it('requests exactly one early refresh when a destination loses its final live passage', async () => {
+    let resolveEarlyRequest: ((departures: TamDeparture[]) => void) | undefined;
+    const client: TamDepartureClient = {
+      getDepartures: vi
+        .fn<TamDepartureClient['getDepartures']>()
+        .mockResolvedValueOnce([
+          createDeparture(Date.now() + 1_500, { course_sae: 'last-lattes', trip_headsign: 'LATTES CENTRE' }),
+          createDeparture(Date.now() + 30_000, { course_sae: 'juvignac', trip_headsign: 'JUVIGNAC' }),
+        ])
+        .mockImplementationOnce(
+          async () =>
+            new Promise<TamDeparture[]>((resolve) => {
+              resolveEarlyRequest = resolve;
+            }),
+        ),
+    };
+    const { controller } = createController(client);
+    controller.setConfig(createConfig({ display_mode: 'all_destinations', destination: undefined }));
+    controller.hostConnected();
+    await controller.refresh();
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(controller.state.departures.map((departure) => departure.trip_headsign)).toEqual(['JUVIGNAC']);
+    expect(client.getDepartures).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(client.getDepartures).toHaveBeenCalledTimes(2);
+
+    const earlyRequest = controller.refresh();
+    resolveEarlyRequest?.([
+      createDeparture(Date.now() + 60_000, { course_sae: 'new-lattes', trip_headsign: 'LATTES CENTRE' }),
+    ]);
+    await earlyRequest;
     controller.hostDisconnected();
   });
 

@@ -236,16 +236,21 @@ const departureFallbackKey = (departure: TamDeparture): string =>
     departure.departure_time ?? departure.delay_sec,
   ].join('\u0000');
 
-export const normalizeDepartureLimit = (value: unknown): number => {
+export const normalizeDepartureLimit = (value: unknown, maximum = DEPARTURES_API_LIMIT): number => {
+  const safeMaximum = Number.isFinite(maximum) ? Math.max(1, Math.trunc(maximum)) : DEPARTURES_API_LIMIT;
   const parsed = asFiniteNumber(value);
   if (parsed === undefined) {
-    return 2;
+    return Math.min(2, safeMaximum);
   }
-  return Math.min(DEPARTURES_API_LIMIT, Math.max(1, Math.trunc(parsed)));
+  return Math.min(safeMaximum, Math.max(1, Math.trunc(parsed)));
 };
 
 /** Sort, de-duplicate and cap validated records without mutating the input. */
-export const normalizeDepartures = (departures: readonly TamDeparture[], limit: unknown): TamDeparture[] => {
+export const normalizeDepartures = (
+  departures: readonly TamDeparture[],
+  limit: unknown,
+  maximum = DEPARTURES_API_LIMIT,
+): TamDeparture[] => {
   const sorted = departures
     .filter((departure) => Number.isFinite(departure.delay_sec) && departure.delay_sec >= 0)
     .slice()
@@ -260,17 +265,22 @@ export const normalizeDepartures = (departures: readonly TamDeparture[], limit: 
     }
     seen.add(key);
     unique.push(departure);
-    if (unique.length >= normalizeDepartureLimit(limit)) {
+    if (unique.length >= normalizeDepartureLimit(limit, maximum)) {
       break;
     }
   }
   return unique;
 };
 
-export const parseDeparturesResponse = (payload: unknown, receivedAt: number, limit: unknown): TamDeparture[] => {
+export const parseDeparturesResponse = (
+  payload: unknown,
+  receivedAt: number,
+  limit: unknown,
+  maximum = DEPARTURES_API_LIMIT,
+): TamDeparture[] => {
   const departures = extractExploreResults(payload)
     .map((row) => parseDepartureRecord(row, receivedAt))
     .filter((departure): departure is TamDeparture => departure !== undefined);
 
-  return normalizeDepartures(departures, limit);
+  return normalizeDepartures(departures, limit, maximum);
 };

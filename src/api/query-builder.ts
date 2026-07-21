@@ -5,6 +5,7 @@ export const HERAULT_DATA_RECORDS_URL =
 
 export const CATALOG_LIMIT = 20_000;
 export const DEPARTURES_API_LIMIT = 5;
+export const ALL_DESTINATIONS_API_LIMIT = 100;
 
 export const DEPARTURE_SELECT_FIELDS = [
   'stop_name',
@@ -108,12 +109,13 @@ export const buildDestinationsParams = (stop: string, line: string): URLSearchPa
   });
 
 export const buildDeparturesParams = (query: DepartureQuery): URLSearchParams => {
+  const allDestinations = query.all_destinations === true;
   const filters = [odsqlTextEquality('stop_name', query.stop), `route_short_name = ${odsqlLineLiteral(query.line)}`];
 
   if (query.direction_id === 0 || query.direction_id === 1) {
     filters.push(`direction_id = ${query.direction_id}`);
   }
-  if (query.destination?.trim()) {
+  if (!allDestinations && query.destination?.trim()) {
     filters.push(odsqlTextEquality('trip_headsign', query.destination));
   }
   filters.push('delay_sec >= 0');
@@ -124,7 +126,7 @@ export const buildDeparturesParams = (query: DepartureQuery): URLSearchParams =>
     order_by: 'delay_sec ASC',
     // Fetch the small upstream window consistently, then limit after validation
     // and de-duplication. This is important when malformed rows are present.
-    limit: String(DEPARTURES_API_LIMIT),
+    limit: String(allDestinations ? ALL_DESTINATIONS_API_LIMIT : DEPARTURES_API_LIMIT),
   });
 };
 

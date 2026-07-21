@@ -123,6 +123,27 @@ describe('TAM card UI', () => {
     expect(latestController().setConfig).toHaveBeenCalledWith(null);
   });
 
+  it('requires a line but no destination in all-destinations mode', async () => {
+    const incomplete = await mountCard({
+      type: 'custom:tam-card',
+      stop: 'PABLO PICASSO',
+      display_mode: 'all_destinations',
+    });
+    expect(cardShadow(incomplete).querySelector('.message-detail')?.textContent).toContain('Sélectionnez une ligne.');
+    expect(latestController().setConfig).toHaveBeenCalledWith(null);
+
+    const complete = await mountCard({
+      type: 'custom:tam-card',
+      stop: 'PABLO PICASSO',
+      line: '3',
+      display_mode: 'all_destinations',
+    });
+    expect(latestController().setConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ display_mode: 'all_destinations', stop: 'PABLO PICASSO', line: '3' }),
+    );
+    expect(cardShadow(complete).querySelector('[aria-busy="true"]')).not.toBeNull();
+  });
+
   it('shows the initial loading skeleton without announcing a live region every second', async () => {
     const card = await mountCard();
     await renderState(card, {
@@ -177,6 +198,70 @@ describe('TAM card UI', () => {
     expect([...shadow.querySelectorAll('.status-badge')].map((node) => node.textContent?.trim())).toContain(
       'À l’approche',
     );
+  });
+
+  it('renders one responsive row per destination in the aggregate mode', async () => {
+    const card = await mountCard({
+      ...COMPLETE_CONFIG,
+      display_mode: 'all_destinations',
+      destination: undefined,
+      direction_id: undefined,
+      departures_per_destination: 3,
+      show_absolute_time: true,
+    });
+    const departures = [
+      departure(7, { trip_headsign: 'JUVIGNAC', course_sae: 'juvignac' }),
+      departure(8, { trip_headsign: 'LATTES CENTRE', course_sae: 'lattes', isApproaching: true }),
+      departure(17, { trip_headsign: 'juvignac', course_sae: 'juvignac-2' }),
+      departure(18, { trip_headsign: 'LATTES CENTRE', course_sae: 'lattes-2' }),
+      departure(27, { trip_headsign: 'JUVIGNAC', course_sae: 'juvignac-3' }),
+      departure(32, { trip_headsign: 'PEROLS ETANG', course_sae: 'perols', is_theorical: true }),
+      departure(62, { trip_headsign: 'MOSSON', course_sae: 'mosson', departure_time: '11:02:00' }),
+    ];
+    await renderState(card, {
+      status: 'ready',
+      departures,
+      isLoading: false,
+      isStale: false,
+    });
+
+    const shadow = cardShadow(card);
+    expect(shadow.querySelector('ha-card')?.classList.contains('overview-card')).toBe(true);
+    expect(shadow.querySelector('ha-card')?.classList.contains('approaching')).toBe(true);
+    expect(
+      [...shadow.querySelectorAll('.destination-name > span:last-child')].map((node) => node.textContent?.trim()),
+    ).toEqual(['JUVIGNAC', 'LATTES CENTRE', 'PEROLS ETANG', 'MOSSON']);
+    expect(shadow.querySelectorAll('.destination-row')).toHaveLength(4);
+    expect(shadow.querySelector('.destination-list')?.getAttribute('role')).toBe('list');
+    expect(shadow.querySelectorAll('.destination-row.has-approaching')).toHaveLength(1);
+    expect(shadow.querySelectorAll('.destination-time')).toHaveLength(7);
+    expect(shadow.querySelectorAll('.destination-time.approaching-departure')).toHaveLength(1);
+    expect([...shadow.querySelectorAll('.destination-time .absolute')].map((node) => node.textContent?.trim())).toEqual(
+      ['10:07', '10:17', '10:27', '10:08', '10:18', '10:32', '11:02'],
+    );
+    expect(shadow.querySelector('.overview-summary')?.textContent).toContain('Toutes les destinations');
+    expect(shadow.querySelector('ha-card')?.getAttribute('aria-label')).toContain('4 destinations');
+    expect(shadow.querySelector('[aria-live]')).toBeNull();
+    expect(card.getCardSize()).toBe(6);
+    expect(card.getGridOptions()).toEqual({ columns: 12, min_columns: 6 });
+  });
+
+  it('announces a singular destination count in the aggregate mode', async () => {
+    const card = await mountCard({
+      ...COMPLETE_CONFIG,
+      display_mode: 'all_destinations',
+      destination: undefined,
+    });
+    await renderState(card, {
+      status: 'ready',
+      departures: [departure(7, { trip_headsign: 'JUVIGNAC' }), departure(17, { trip_headsign: 'juvignac' })],
+      isLoading: false,
+      isStale: false,
+    });
+
+    const label = cardShadow(card).querySelector('ha-card')?.getAttribute('aria-label');
+    expect(label).toContain('1 destination.');
+    expect(label).not.toContain('1 destinations');
   });
 
   it('does not mislabel an empty response as the end of service', async () => {

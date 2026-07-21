@@ -32,7 +32,7 @@ const stop = 'PABLO PICASSO';
 const line = '3';
 const destination = 'LATTES CENTRE';
 
-const [stops, lines, destinations, journeys, departures] = await Promise.all([
+const [stops, lines, destinations, journeys, departures, allDestinations] = await Promise.all([
   request({ select: 'stop_name', group_by: 'stop_name', order_by: 'stop_name ASC', limit: '20000' }),
   request({
     select: 'route_short_name',
@@ -61,6 +61,13 @@ const [stops, lines, destinations, journeys, departures] = await Promise.all([
     where: `${textEquality('stop_name', stop)} AND route_short_name = ${line} AND direction_id = 1 AND ${textEquality('trip_headsign', destination)} AND delay_sec >= 0`,
     order_by: 'delay_sec ASC',
     limit: '5',
+  }),
+  request({
+    select:
+      'stop_name,route_short_name,trip_headsign,direction_id,departure_time,is_theorical,delay_sec,course_sae,stop_coordinates',
+    where: `${textEquality('stop_name', stop)} AND route_short_name = ${line} AND delay_sec >= 0`,
+    order_by: 'delay_sec ASC',
+    limit: '100',
   }),
 ]);
 
@@ -95,7 +102,11 @@ for (const departure of departures.results) {
   assert.equal(sameText(departure.trip_headsign, destination), true);
   assert.equal(Number(departure.direction_id), 1);
 }
+for (const departure of allDestinations.results) {
+  assert.equal(sameText(departure.stop_name, stop), true);
+  assert.equal(String(departure.route_short_name), line);
+}
 
 console.info(
-  `Hérault Data contract OK: ${stops.results.length} stops, ${lines.results.length} line(s), ${destinations.results.length} destination(s), ${journeys.results.length} journey(s), ${departures.results.length} current Pablo Picasso departure(s).`,
+  `Hérault Data contract OK: ${stops.results.length} stops, ${lines.results.length} line(s), ${destinations.results.length} destination(s), ${journeys.results.length} journey(s), ${departures.results.length} current Pablo Picasso departure(s), ${allDestinations.results.length} aggregate row(s).`,
 );

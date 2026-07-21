@@ -146,6 +146,7 @@ describe('TAM card editor UI', () => {
     expect(config).toMatchObject({
       type: 'custom:tam-card',
       stop: 'PABLO PICASSO',
+      display_mode: 'destination',
       line: '3',
       destination: 'LATTES CENTRE',
       departures: 2,
@@ -165,6 +166,56 @@ describe('TAM card editor UI', () => {
     expect(journeyCalls).toHaveLength(1);
     expect(journeyCalls[0]?.[1]).toEqual(['PABLO PICASSO']);
     expect(catalogHarness.getCatalog.mock.calls.filter(([kind]) => kind === 'destinations')).toHaveLength(0);
+  });
+
+  it('switches explicitly to one nearest passage per destination and offers a direction filter', async () => {
+    const editor = mountEditor();
+    const events = collectConfigEvents(editor);
+    editor.setConfig(MODERN_CONFIG);
+
+    const mode = await waitForSelector(editor, 'Mode d’affichage');
+    expect(mode.value).toBe('destination');
+    await waitForSelector(editor, 'Destination');
+    mode.dispatchEvent(valueChanged('all_destinations'));
+    await editor.updateComplete;
+
+    expect(lastConfig(events)).toMatchObject({
+      type: 'custom:tam-card',
+      stop: 'PABLO PICASSO',
+      line: '3',
+      display_mode: 'all_destinations',
+    });
+    expect(lastConfig(events)).not.toHaveProperty('destination');
+    expect(lastConfig(events)).not.toHaveProperty('direction_id');
+    expect(findSelector(editor, 'Destination')).toBeUndefined();
+    expect(findSelector(editor, 'Nombre de passages')).toBeUndefined();
+    const passagesPerDestination = findSelector(editor, 'Passages par destination');
+    expect(passagesPerDestination?.value).toBe(1);
+    expect(editor.shadowRoot?.textContent).toContain('regroupés par destination');
+
+    passagesPerDestination?.dispatchEvent(valueChanged(3));
+    expect(lastConfig(events)).toMatchObject({ departures_per_destination: 3 });
+
+    const direction = await waitForSelector(editor, 'Sens');
+    const options = (direction.selector?.select as { options?: Array<{ value: string; label: string }> })?.options;
+    expect(options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: 'auto', label: 'Tous les sens' }),
+        expect.objectContaining({ value: '0', label: expect.stringContaining('JUVIGNAC') }),
+        expect.objectContaining({ value: '1', label: expect.stringContaining('LATTES CENTRE') }),
+      ]),
+    );
+
+    direction.dispatchEvent(valueChanged('0'));
+    expect(lastConfig(events)).toMatchObject({ display_mode: 'all_destinations', direction_id: 0 });
+    direction.dispatchEvent(valueChanged('auto'));
+    expect(lastConfig(events)).not.toHaveProperty('direction_id');
+
+    mode.dispatchEvent(valueChanged('destination'));
+    await editor.updateComplete;
+    expect(findSelector(editor, 'Destination')).toBeDefined();
+    expect(findSelector(editor, 'Nombre de passages')).toBeDefined();
+    expect(findSelector(editor, 'Passages par destination')).toBeUndefined();
   });
 
   it('resets destination and direction when the selected line changes', async () => {
@@ -235,6 +286,66 @@ describe('TAM card editor UI', () => {
     expect(select?.options).toEqual(expect.arrayContaining([expect.objectContaining({ value: 'auto' })]));
     direction.dispatchEvent(valueChanged('auto'));
 
+    expect(lastConfig(events)).not.toHaveProperty('direction_id');
+  });
+
+  it('keeps both numeric directions available in manual mode even when the catalogue has only one', async () => {
+    const editor = mountEditor();
+    editor.setConfig({
+      ...MODERN_CONFIG,
+      line: '4',
+      destination: 'GARCIA LORCA',
+      direction_id: 0,
+    });
+    await waitForSelector(editor, 'Destination');
+
+    const manualButton = [...(editor.shadowRoot?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent?.trim() === 'Saisie manuelle',
+    ) as HTMLButtonElement;
+    manualButton.click();
+
+    const direction = await waitForSelector(editor, 'Sens');
+    const options = (direction.selector?.select as { options?: Array<{ value: string }> })?.options;
+    expect(options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: 'auto' }),
+        expect.objectContaining({ value: '0' }),
+        expect.objectContaining({ value: '1' }),
+      ]),
+    );
+  });
+
+  it('does not let an obsolete legacy line inference restore a destination after a mode change', async () => {
+    let resolveJourneys: ((snapshot: CatalogSnapshot) => void) | undefined;
+    catalogHarness.getCatalog.mockImplementation(async (kind, arguments_) => {
+      if (kind === 'journeys') {
+        return new Promise<CatalogSnapshot>((resolve) => {
+          resolveJourneys = resolve;
+        });
+      }
+      return catalogResponse(kind, arguments_);
+    });
+    const editor = mountEditor();
+    const events = collectConfigEvents(editor);
+    editor.setConfig({
+      type: 'custom:tam-card',
+      stop: 'Pablo Picasso',
+      direction: 'Lattes Centre',
+    });
+
+    await vi.waitFor(() => {
+      expect(catalogHarness.getCatalog.mock.calls.some(([kind]) => kind === 'journeys')).toBe(true);
+    });
+    const mode = await waitForSelector(editor, 'Mode d’affichage');
+    mode.dispatchEvent(valueChanged('all_destinations'));
+    resolveJourneys?.({
+      value: [{ line: '3', destination: 'LATTES CENTRE', direction_id: 1 }],
+    });
+    await Promise.resolve();
+    await editor.updateComplete;
+
+    expect(lastConfig(events)).toMatchObject({ display_mode: 'all_destinations', stop: 'PABLO PICASSO' });
+    expect(lastConfig(events)).not.toHaveProperty('destination');
     expect(lastConfig(events)).not.toHaveProperty('direction_id');
   });
 

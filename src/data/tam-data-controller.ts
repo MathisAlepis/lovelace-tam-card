@@ -1,6 +1,7 @@
 import type { ReactiveController } from 'lit';
 
 import { HeraultApiError } from '../api/errors';
+import { ALL_DESTINATIONS_API_LIMIT } from '../api/query-builder';
 import type { DepartureQuery, NormalizedTamCardConfig, RequestOptions, TamDeparture } from '../types';
 import { type CacheLease, type CacheSnapshot, sharedTamCache, type TamSharedCache } from './shared-cache';
 
@@ -64,7 +65,14 @@ export interface TamDataControllerOptions {
 
 type DataConfig = Pick<
   NormalizedTamCardConfig,
-  'stop' | 'line' | 'destination' | 'direction_id' | 'departures' | 'refresh_interval'
+  | 'stop'
+  | 'display_mode'
+  | 'line'
+  | 'destination'
+  | 'direction_id'
+  | 'departures'
+  | 'departures_per_destination'
+  | 'refresh_interval'
 >;
 
 const INITIAL_STATE: TamDataControllerState = {
@@ -96,10 +104,12 @@ function remainingClockMinutes(predictedAt: number, now: number): number {
 function dataConfig(config: NormalizedTamCardConfig): DataConfig {
   return {
     stop: config.stop.trim(),
+    display_mode: config.display_mode,
     line: cleanOptionalString(config.line),
-    destination: cleanOptionalString(config.destination),
+    destination: config.display_mode === 'destination' ? cleanOptionalString(config.destination) : undefined,
     direction_id: config.direction_id,
     departures: clampInteger(config.departures, 1, MAX_SHARED_DEPARTURES),
+    departures_per_destination: clampInteger(config.departures_per_destination, 1, 3),
     refresh_interval: clampInteger(config.refresh_interval, MIN_REFRESH_INTERVAL_SECONDS, MAX_REFRESH_INTERVAL_SECONDS),
   };
 }
@@ -108,10 +118,12 @@ function configSignature(config: DataConfig | undefined): string {
   if (!config) return '';
   return JSON.stringify([
     config.stop,
+    config.display_mode,
     config.line ?? '',
     config.destination ?? '',
     config.direction_id ?? '',
     config.departures,
+    config.departures_per_destination,
     config.refresh_interval,
   ]);
 }
@@ -224,7 +236,11 @@ export class TamDataController implements ReactiveController {
   }
 
   public get isConfigured(): boolean {
-    return Boolean(this.config?.stop && this.config.line);
+    return Boolean(
+      this.config?.stop &&
+      this.config.line &&
+      (this.config.display_mode === 'all_destinations' || this.config.destination),
+    );
   }
 
   /** Set normalized config. Display-only config changes are intentionally ignored. */
@@ -284,6 +300,7 @@ export class TamDataController implements ReactiveController {
       line: config.line,
       destination: config.destination,
       direction_id: config.direction_id,
+      all_destinations: config.display_mode === 'all_destinations',
       // Fetch the shared maximum so cards displaying 1 and 5 passages can share.
       departures: MAX_SHARED_DEPARTURES,
     };
@@ -379,8 +396,8 @@ export class TamDataController implements ReactiveController {
       .map((departure) => this.normalizePrediction(departure, snapshot.fetchedAt))
       .filter((departure): departure is TamDeparture => departure !== undefined)
       .sort((left, right) => left.predicted_at - right.predicted_at)
-      .slice(0, MAX_SHARED_DEPARTURES);
-    this.aliveDepartureCount = this.countAlive(this.now());
+      .slice(0, this.config?.display_mode === 'all_destinations' ? ALL_DESTINATIONS_API_LIMIT : MAX_SHARED_DEPARTURES);
+    this.aliveDepartureCount = this.countActiveRows(this.now());
     this.earlyRefreshRequested = false;
     if (snapshot.stale) this.applyRetryAfter(snapshot.error);
     else {
@@ -433,7 +450,7 @@ export class TamDataController implements ReactiveController {
     if (!this.canRun()) return;
 
     const now = this.now();
-    const nextAliveCount = this.countAlive(now);
+    const nextAliveCount = this.countActiveRows(now);
     const departureExpired = nextAliveCount < this.aliveDepartureCount;
     this.aliveDepartureCount = nextAliveCount;
 
@@ -497,23 +514,40 @@ export class TamDataController implements ReactiveController {
   }
 
   private liveDepartures(now: number): LiveTamDeparture[] {
-    const limit = this.config?.departures ?? 0;
-    return this.rawDepartures
-      .filter((departure) => departure.predicted_at > now)
-      .slice(0, limit)
-      .map((departure) => {
-        const remainingSeconds = Math.ceil((departure.predicted_at - now) / 1_000);
-        return {
-          ...departure,
-          remainingSeconds,
-          remainingMinutes: remainingClockMinutes(departure.predicted_at, now),
-          isApproaching: remainingSeconds <= APPROACHING_THRESHOLD_SECONDS,
-        };
-      });
+    const alive = this.rawDepartures.filter((departure) => departure.predicted_at > now);
+    const selected =
+      this.config?.display_mode === 'all_destinations'
+        ? this.departuresPerDestination(alive, this.config.departures_per_destination)
+        : alive.slice(0, this.config?.departures ?? 0);
+    return selected.map((departure) => {
+      const remainingSeconds = Math.ceil((departure.predicted_at - now) / 1_000);
+      return {
+        ...departure,
+        remainingSeconds,
+        remainingMinutes: remainingClockMinutes(departure.predicted_at, now),
+        isApproaching: remainingSeconds <= APPROACHING_THRESHOLD_SECONDS,
+      };
+    });
   }
 
-  private countAlive(now: number): number {
-    return this.rawDepartures.reduce((count, departure) => count + (departure.predicted_at > now ? 1 : 0), 0);
+  private departuresPerDestination(departures: readonly TamDeparture[], limit: number): TamDeparture[] {
+    const countByDestination = new Map<string, number>();
+    const selected: TamDeparture[] = [];
+    for (const departure of departures) {
+      const key = departure.trip_headsign.normalize('NFKC').toLocaleUpperCase('fr-FR');
+      const count = countByDestination.get(key) ?? 0;
+      if (count >= limit) continue;
+      countByDestination.set(key, count + 1);
+      selected.push(departure);
+    }
+    return selected;
+  }
+
+  private countActiveRows(now: number): number {
+    const alive = this.rawDepartures.filter((departure) => departure.predicted_at > now);
+    return this.config?.display_mode === 'all_destinations'
+      ? this.departuresPerDestination(alive, this.config.departures_per_destination).length
+      : alive.length;
   }
 
   private canRun(): boolean {

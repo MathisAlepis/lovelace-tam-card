@@ -8,3 +8,9 @@ views:
         line: '3'
         direction_id: 1
         destination: LATTES CENTRE
+      - type: custom:tam-card
+        display_mode: all_destinations
+        stop: PABLO PICASSO
+        line: '3'
+        departures_per_destination: 3
+        show_absolute_time: true

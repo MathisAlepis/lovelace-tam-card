@@ -48,6 +48,17 @@ describe('TamSharedCache', () => {
     expect(createDepartureCacheKey({ stop: 'Pablo   Picasso', line: '3', destination: 'Lattes Centre' })).not.toBe(
       exact,
     );
+    const aggregate = createDepartureCacheKey({
+      stop: 'Pablo Picasso',
+      line: '3',
+      destination: 'ignored',
+      all_destinations: true,
+    });
+    expect(aggregate).not.toBe(exact);
+    expect(aggregate).toBe(createDepartureCacheKey({ stop: 'Pablo Picasso', line: '3', all_destinations: true }));
+    expect(aggregate).not.toBe(
+      createDepartureCacheKey({ stop: 'Pablo Picasso', line: '3', direction_id: 1, all_destinations: true }),
+    );
   });
 
   it('shares the exact in-flight promise for identical requests', async () => {

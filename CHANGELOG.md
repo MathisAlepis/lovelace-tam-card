@@ -8,6 +8,7 @@ Ce projet suit [Semantic Versioning](https://semver.org/lang/fr/) et s’inspire
 
 - Client TypeScript autonome pour l’API Explore v2.1 de Hérault Data, sans authentification ni backend.
 - Éditeur visuel Lovelace avec sélection en cascade de l’arrêt, de la ligne, de la destination et du sens, ainsi qu’un mode de saisie manuelle de secours.
+- Mode opt-in `all_destinations` réunissant dans une seule carte de 1 à 3 passages par destination, avec filtre de sens facultatif.
 - Cache partagé entre les instances de carte, mutualisation des requêtes en cours et conservation temporaire du dernier résultat valide.
 - Contrôleur de rafraîchissement respectant le cycle de vie Lit, la visibilité de l’onglet et un compte à rebours local entre deux réponses réseau.
 - États distincts pour chargement, absence de passages, hors-ligne, limitation HTTP 429, erreur et données anciennes.

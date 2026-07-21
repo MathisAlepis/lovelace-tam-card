@@ -1,15 +1,18 @@
 import type { LovelaceCardConfig } from 'custom-card-helpers';
 
 export type DirectionId = 0 | 1;
+export type TamDisplayMode = 'destination' | 'all_destinations';
 
 /** User-facing Lovelace configuration, including the deprecated v2 aliases. */
 export interface TamCardConfig extends LovelaceCardConfig {
   type: 'custom:tam-card';
   stop: string;
+  display_mode?: TamDisplayMode;
   line?: string;
   destination?: string;
   direction_id?: DirectionId;
   departures?: number;
+  departures_per_destination?: number;
   refresh_interval?: number;
   background_color?: string;
   text_color?: string;
@@ -30,10 +33,12 @@ export interface TamCardConfig extends LovelaceCardConfig {
 export interface NormalizedTamCardConfig extends LovelaceCardConfig {
   type: 'custom:tam-card';
   stop: string;
+  display_mode: TamDisplayMode;
   line?: string;
   destination?: string;
   direction_id?: DirectionId;
   departures: number;
+  departures_per_destination: number;
   refresh_interval: number;
   background_color: string;
   text_color: string;
@@ -71,7 +76,9 @@ export interface DepartureQuery {
   line: string;
   destination?: string;
   direction_id?: DirectionId;
-  /** Number returned to the caller. The upstream query still fetches five rows. */
+  /** Fetch a wider window so the controller can retain one row per destination. */
+  all_destinations?: boolean;
+  /** Number returned in destination mode; aggregate mode uses its own bounded window. */
   departures?: number;
 }
 

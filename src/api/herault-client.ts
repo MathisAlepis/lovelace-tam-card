@@ -7,6 +7,8 @@ import {
   buildJourneysForStopParams,
   buildLinesForStopParams,
   buildStopsParams,
+  ALL_DESTINATIONS_API_LIMIT,
+  DEPARTURES_API_LIMIT,
   HERAULT_DATA_RECORDS_URL,
 } from './query-builder';
 import {
@@ -82,7 +84,9 @@ export class HeraultDataClient {
 
   public async getDepartures(query: DepartureQuery, options: RequestOptions = {}): Promise<TamDeparture[]> {
     const payload = await this.request(buildDeparturesParams(query), options);
-    return parseDeparturesResponse(payload, this.now(), query.departures);
+    const allDestinations = query.all_destinations === true;
+    const maximum = allDestinations ? ALL_DESTINATIONS_API_LIMIT : DEPARTURES_API_LIMIT;
+    return parseDeparturesResponse(payload, this.now(), allDestinations ? maximum : query.departures, maximum);
   }
 
   private async request(params: URLSearchParams, options: RequestOptions): Promise<unknown> {

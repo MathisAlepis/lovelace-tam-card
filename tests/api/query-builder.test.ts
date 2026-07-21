@@ -32,6 +32,31 @@ describe('ODSQL query builder', () => {
     });
   });
 
+  it('builds a wider all-destinations query without a headsign filter', () => {
+    const params = buildDeparturesParams({
+      stop: 'PABLO PICASSO',
+      line: '3',
+      destination: 'IGNORED',
+      direction_id: 0,
+      all_destinations: true,
+    });
+
+    expect(params.get('where')).toBe(
+      'lower(stop_name) = "pablo picasso" AND route_short_name = 3 AND direction_id = 0 AND delay_sec >= 0',
+    );
+    expect(params.get('where')).not.toContain('trip_headsign');
+    expect(params.get('limit')).toBe('100');
+
+    const invalidFlag = buildDeparturesParams({
+      stop: 'PABLO PICASSO',
+      line: '3',
+      destination: 'LATTES CENTRE',
+      all_destinations: 'true' as never,
+    });
+    expect(invalidFlag.get('where')).toContain('lower(trip_headsign) = "lattes centre"');
+    expect(invalidFlag.get('limit')).toBe('5');
+  });
+
   it('escapes quotes, backslashes and control characters before URL encoding', () => {
     const stop = 'A" OR delay_sec < 0 OR "x"="x\\B\nC & D';
     const literal = odsqlStringLiteral(stop);

@@ -28,6 +28,11 @@ interface HassThemeView {
   themes?: { darkMode?: boolean; theme?: string };
 }
 
+interface DestinationDepartureGroup {
+  readonly destination: string;
+  readonly departures: readonly LiveTamDeparture[];
+}
+
 const sameText = (left: string, right: string): boolean =>
   left.localeCompare(right, 'fr', { sensitivity: 'base' }) === 0;
 
@@ -103,15 +108,17 @@ export class TamCard extends LitElement {
   }
 
   public getCardSize(): number {
-    return 2;
+    return this.config?.display_mode === 'all_destinations'
+      ? Math.max(3, 2 + this.groupDeparturesByDestination(this.data.state.departures).length)
+      : 2;
   }
 
   public getGridOptions(): Record<string, number> {
-    return { columns: 12, min_columns: 3 };
+    return { columns: 12, min_columns: this.config?.display_mode === 'all_destinations' ? 6 : 3 };
   }
 
   protected render(): TemplateResult {
-    if (!this.config || !this.config.stop || !this.config.destination) {
+    if (!this.config || !this.config.stop || (this.config.display_mode === 'destination' && !this.config.destination)) {
       return this.renderMessage(
         'mdi:tune-variant',
         localize('card.incomplete_title', this.language),
@@ -131,7 +138,7 @@ export class TamCard extends LitElement {
       return this.renderMessage(
         'mdi:tune-variant',
         localize('card.incomplete_title', this.language),
-        localize('card.incomplete_detail', this.language),
+        this.incompleteConfigurationDetail(),
       );
     }
 
@@ -161,6 +168,16 @@ export class TamCard extends LitElement {
   }
 
   private renderDepartures(departures: readonly LiveTamDeparture[], stale: boolean, loading: boolean): TemplateResult {
+    return this.config?.display_mode === 'all_destinations'
+      ? this.renderAllDestinations(departures, stale, loading)
+      : this.renderDestinationDepartures(departures, stale, loading);
+  }
+
+  private renderDestinationDepartures(
+    departures: readonly LiveTamDeparture[],
+    stale: boolean,
+    loading: boolean,
+  ): TemplateResult {
     const config = this.config as NormalizedTamCardConfig & { line: string; destination: string };
     const route = getRoutePresentation(config.line, this.themePrimaryColor);
     const background = config.background_color === 'auto' ? route.background : config.background_color;
@@ -223,6 +240,131 @@ export class TamCard extends LitElement {
         </div>
       </ha-card>
     `;
+  }
+
+  private renderAllDestinations(
+    departures: readonly LiveTamDeparture[],
+    stale: boolean,
+    loading: boolean,
+  ): TemplateResult {
+    const config = this.config as NormalizedTamCardConfig & { line: string };
+    const route = getRoutePresentation(config.line, this.themePrimaryColor);
+    const background = config.background_color === 'auto' ? route.background : config.background_color;
+    const text =
+      config.text_color === 'auto'
+        ? config.background_color === 'auto'
+          ? route.text
+          : readableTextColor(background)
+        : config.text_color;
+    const approaching = departures.some((departure) => departure.isApproaching);
+    const destinationGroups = this.groupDeparturesByDestination(departures);
+    const sourceLabel = this.departureSourceLabel(departures);
+    const lineLabel = localize('card.line_label', this.language, { line: config.line });
+    const directionLabel =
+      config.direction_id === undefined
+        ? localize('card.all_directions', this.language)
+        : localize('card.direction_label', this.language, { direction: config.direction_id });
+    const countLabel = localize(
+      destinationGroups.length === 1 ? 'card.destination_count_one' : 'card.destination_count',
+      this.language,
+      { count: destinationGroups.length },
+    );
+    const departureSummary = destinationGroups
+      .map(
+        (group) =>
+          `${group.destination}, ${group.departures
+            .map((departure) => this.departureAccessibilityLabel(departure))
+            .join(', ')}`,
+      )
+      .join('. ');
+    const accessibilityStates = [
+      sourceLabel,
+      ...(stale ? [localize('card.stale', this.language)] : []),
+      ...(approaching ? [localize('card.approaching', this.language)] : []),
+    ].join('. ');
+    const styles = {
+      '--tam-background': background,
+      '--tam-text': text,
+      '--tam-badge-background': text,
+      '--tam-badge-text': background,
+    };
+
+    return html`
+      <ha-card
+        class=${approaching ? 'overview-card approaching' : 'overview-card'}
+        style=${styleMap(styles)}
+        tabindex="0"
+        aria-label=${`${localize('card.label', this.language)}. ${lineLabel}. ${config.stop}. ${countLabel}. ${directionLabel}. ${departureSummary}. ${accessibilityStates}`}
+      >
+        <div class="overview-header">
+          <div class="identity" aria-label=${lineLabel}>
+            <ha-icon class="mode-icon" .icon=${route.icon} aria-hidden="true"></ha-icon>
+            ${config.show_line ? html`<span class="line-badge">${config.line}</span>` : nothing}
+          </div>
+          <div class="overview-heading">
+            <span class="stop">${config.stop}</span>
+            <span class="overview-summary">
+              ${localize('card.all_destinations', this.language)} · ${directionLabel}
+            </span>
+          </div>
+        </div>
+
+        <ul class="destination-list" role="list">
+          ${destinationGroups.map((group) => this.renderDestinationRow(group))}
+        </ul>
+
+        <div class="metadata" aria-hidden="true">
+          ${approaching ? html`<span class="approaching-dot"></span>` : nothing}
+          ${
+            approaching
+              ? html`<span class="status-badge approaching-badge">${localize('card.approaching', this.language)}</span>`
+              : nothing
+          }
+          ${stale ? html`<span class="status-badge">${localize('card.stale', this.language)}</span>` : nothing}
+          ${loading ? html`<span class="status-badge">↻</span>` : nothing}
+          ${config.show_realtime_badge ? html`<span class="status-badge">${sourceLabel}</span>` : nothing}
+        </div>
+      </ha-card>
+    `;
+  }
+
+  private renderDestinationRow(group: DestinationDepartureGroup): TemplateResult {
+    const approaching = group.departures.some((departure) => departure.isApproaching);
+    return html`
+      <li class=${approaching ? 'destination-row has-approaching' : 'destination-row'}>
+        <span class="destination-name" title=${group.destination}>
+          <span class="arrow" aria-hidden="true">→</span>
+          <span>${group.destination}</span>
+        </span>
+        <span class="destination-times">
+          ${group.departures.map((departure) => this.renderDestinationTime(departure))}
+        </span>
+      </li>
+    `;
+  }
+
+  private renderDestinationTime(departure: LiveTamDeparture): TemplateResult {
+    return html`
+      <span class=${departure.isApproaching ? 'destination-time approaching-departure' : 'destination-time'}>
+        <span class="time">${this.departureTimeLabel(departure)}</span>
+        ${
+          this.config?.show_absolute_time && departure.departure_time
+            ? html`<span class="absolute">${this.formatAbsoluteTime(departure.departure_time)}</span>`
+            : nothing
+        }
+      </span>
+    `;
+  }
+
+  private groupDeparturesByDestination(departures: readonly LiveTamDeparture[]): DestinationDepartureGroup[] {
+    const groups = new Map<string, { destination: string; departures: LiveTamDeparture[] }>();
+    for (const departure of departures) {
+      const key = departure.trip_headsign.normalize('NFKC').toLocaleUpperCase('fr-FR');
+      const group = groups.get(key);
+      if (group) group.departures.push(departure);
+      else groups.set(key, { destination: departure.trip_headsign, departures: [departure] });
+    }
+    return [...groups.values()];
   }
 
   private renderDeparture(departure: LiveTamDeparture): TemplateResult {
@@ -332,9 +474,11 @@ export class TamCard extends LitElement {
     const labels = this.configIssues.map((issue) =>
       issue === 'missing-stop'
         ? localize('card.missing_stop', this.language)
-        : issue === 'missing-destination'
-          ? localize('card.missing_destination', this.language)
-          : localize('card.incomplete_detail', this.language),
+        : issue === 'missing-line'
+          ? localize('card.missing_line', this.language)
+          : issue === 'missing-destination'
+            ? localize('card.missing_destination', this.language)
+            : localize('card.incomplete_detail', this.language),
     );
     return [...new Set(labels)].join(' ') || localize('card.incomplete_detail', this.language);
   }

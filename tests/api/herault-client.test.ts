@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { HeraultApiError } from '../../src/api/errors';
 import { type FetchLike, HeraultDataClient } from '../../src/api/herault-client';
-import { validExplorePayload } from './fixtures';
+import { departureRecord, validExplorePayload } from './fixtures';
 
 const jsonResponse = (payload: unknown, status = 200, headers?: HeadersInit): Response =>
   new Response(JSON.stringify(payload), {
@@ -59,6 +59,27 @@ describe('HeraultDataClient', () => {
     });
 
     expect(result).toEqual([expect.objectContaining({ delay_sec: 240, predicted_at: 245_000 })]);
+  });
+
+  it('retains the wider response window only for all-destinations requests', async () => {
+    const payload = {
+      results: Array.from({ length: 8 }, (_, index) =>
+        departureRecord(index + 1, {
+          course_sae: `course-${index}`,
+          trip_headsign: `DESTINATION ${index}`,
+        }),
+      ),
+    };
+    const aggregateFetch = vi.fn<FetchLike>().mockResolvedValue(jsonResponse(payload));
+    const aggregateClient = new HeraultDataClient({ fetch: aggregateFetch });
+
+    await expect(
+      aggregateClient.getDepartures({ stop: 'PABLO PICASSO', line: '3', all_destinations: true }),
+    ).resolves.toHaveLength(8);
+    expect(new URL(String(aggregateFetch.mock.calls[0][0])).searchParams.get('limit')).toBe('100');
+
+    const regularClient = new HeraultDataClient({ fetch: vi.fn<FetchLike>().mockResolvedValue(jsonResponse(payload)) });
+    await expect(regularClient.getDepartures({ stop: 'PABLO PICASSO', line: '3' })).resolves.toHaveLength(2);
   });
 
   it('maps invalid JSON, HTTP and rate-limit responses to stable errors', async () => {

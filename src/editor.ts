@@ -8,7 +8,7 @@ import { CARD_TYPE, EDITOR_TAG } from './const';
 import { sharedTamCache } from './data/shared-cache';
 import { localize } from './localize/localize';
 import { editorStyles } from './styles';
-import type { DirectionId, TamCardConfig, TamDestination, TamJourney } from './types';
+import type { DirectionId, TamCardConfig, TamDestination, TamDisplayMode, TamJourney } from './types';
 
 type EditableConfig = Omit<Partial<TamCardConfig>, 'type'> & { type: typeof CARD_TYPE };
 type CatalogLoading = 'stops' | 'lines' | 'destinations';
@@ -49,6 +49,23 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
       <div class="editor">
         <section class="section" aria-labelledby="tam-editor-data">
           <h3 id="tam-editor-data">${localize('editor.data', this.language)}</h3>
+          ${this.selector(
+            localize('editor.display_mode', this.language),
+            {
+              select: {
+                options: [
+                  { value: 'destination', label: localize('editor.display_mode_destination', this.language) },
+                  {
+                    value: 'all_destinations',
+                    label: localize('editor.display_mode_all_destinations', this.language),
+                  },
+                ],
+                mode: 'dropdown',
+              },
+            },
+            this.config.display_mode ?? 'destination',
+            this.changeDisplayMode,
+          )}
           ${this.renderCatalogFeedback()}
           <div class="actions">
             <button type="button" @click=${this.toggleManual}>
@@ -67,12 +84,24 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 
         <section class="section" aria-labelledby="tam-editor-display">
           <h3 id="tam-editor-display">${localize('editor.display', this.language)}</h3>
-          ${this.selector(
-            localize('editor.departures', this.language),
-            { number: { min: 1, max: 5, step: 1, mode: 'box' } },
-            this.config.departures ?? 2,
-            (event) => this.changeNumber('departures', event, 1, 5),
-          )}
+          ${
+            this.isAllDestinations
+              ? html`
+                  <p class="hint">${localize('editor.all_destinations_hint', this.language)}</p>
+                  ${this.selector(
+                    localize('editor.departures_per_destination', this.language),
+                    { number: { min: 1, max: 3, step: 1, mode: 'box' } },
+                    this.config.departures_per_destination ?? 1,
+                    (event) => this.changeNumber('departures_per_destination', event, 1, 3),
+                  )}
+                `
+              : this.selector(
+                  localize('editor.departures', this.language),
+                  { number: { min: 1, max: 5, step: 1, mode: 'box' } },
+                  this.config.departures ?? 2,
+                  (event) => this.changeNumber('departures', event, 1, 5),
+                )
+          }
           ${this.selector(
             localize('editor.refresh_interval', this.language),
             { number: { min: 30, max: 300, step: 30, mode: 'box', unit_of_measurement: 's' } },
@@ -105,6 +134,10 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
 
   private get language(): string | undefined {
     return this.hass?.language;
+  }
+
+  private get isAllDestinations(): boolean {
+    return this.config?.display_mode === 'all_destinations';
   }
 
   private renderCatalogFeedback(): TemplateResult | typeof nothing {
@@ -144,17 +177,19 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
       }
       ${
         this.config?.stop && this.config.line
-          ? this.selector(
-              localize('editor.destination', this.language),
-              {
-                select: {
-                  options: this.destinationOptions(),
-                  mode: 'dropdown',
+          ? this.isAllDestinations
+            ? this.renderDirectionSelector(true, true)
+            : this.selector(
+                localize('editor.destination', this.language),
+                {
+                  select: {
+                    options: this.destinationOptions(),
+                    mode: 'dropdown',
+                  },
                 },
-              },
-              destinationValue,
-              this.changeDestination,
-            )
+                destinationValue,
+                this.changeDestination,
+              )
           : html`<p class="hint">${localize('editor.select_line_first', this.language)}</p>`
       }
     `;
@@ -175,28 +210,60 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
         this.config?.line ?? '',
         (event) => this.changeText('line', event, ['destination', 'direction_id']),
       )}
-      ${this.selector(
-        localize('editor.destination', this.language),
-        { text: { type: 'text' } },
-        this.config?.destination ?? '',
-        (event) => this.changeText('destination', event),
-      )}
-      ${this.selector(
-        localize('editor.direction_id', this.language),
-        {
-          select: {
-            options: [
-              { value: 'auto', label: localize('editor.direction_auto', this.language) },
-              { value: '0', label: localize('editor.direction_0', this.language) },
-              { value: '1', label: localize('editor.direction_1', this.language) },
-            ],
-            mode: 'dropdown',
-          },
-        },
-        this.config?.direction_id === undefined ? 'auto' : String(this.config.direction_id),
-        this.changeDirection,
-      )}
+      ${
+        this.isAllDestinations
+          ? nothing
+          : this.selector(
+              localize('editor.destination', this.language),
+              { text: { type: 'text' } },
+              this.config?.destination ?? '',
+              (event) => this.changeText('destination', event),
+            )
+      }
+      ${this.renderDirectionSelector(this.isAllDestinations)}
     `;
+  }
+
+  private renderDirectionSelector(allDestinations: boolean, restrictToCatalog = false): TemplateResult {
+    return this.selector(
+      localize('editor.direction_id', this.language),
+      {
+        select: {
+          options: this.directionOptions(allDestinations, restrictToCatalog),
+          mode: 'dropdown',
+        },
+      },
+      this.config?.direction_id === undefined ? 'auto' : String(this.config.direction_id),
+      this.changeDirection,
+    );
+  }
+
+  private directionOptions(
+    allDestinations: boolean,
+    restrictToCatalog: boolean,
+  ): Array<{ value: string; label: string }> {
+    const available = [
+      ...new Set(this.destinations.map((item) => item.direction_id).filter((id) => id !== undefined)),
+    ].sort((left, right) => left - right);
+    const directions: DirectionId[] = restrictToCatalog && available.length > 0 ? available : [0, 1];
+    return [
+      {
+        value: 'auto',
+        label: localize(allDestinations ? 'editor.all_directions' : 'editor.direction_auto', this.language),
+      },
+      ...directions.map((direction) => {
+        const destinations = [
+          ...new Set(
+            this.destinations.filter((item) => item.direction_id === direction).map((item) => item.destination),
+          ),
+        ];
+        const base = localize(`editor.direction_${direction}`, this.language);
+        return {
+          value: String(direction),
+          label: allDestinations && destinations.length > 0 ? `${base} — ${destinations.join(', ')}` : base,
+        };
+      }),
+    ];
   }
 
   private selector(
@@ -242,6 +309,21 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
     this.emitConfig();
     if (stop) void this.loadLines(stop, generation);
     else this.loading = undefined;
+  };
+
+  private readonly changeDisplayMode = (event: SelectorEvent): void => {
+    if (!this.config) return;
+    const value = textValue(event.detail.value);
+    const displayMode: TamDisplayMode = value === 'all_destinations' ? 'all_destinations' : 'destination';
+    if (displayMode === this.config.display_mode) return;
+    const generation = ++this.generation;
+    this.loading = undefined;
+    this.catalogError = undefined;
+    this.config = { ...this.config, display_mode: displayMode };
+    delete this.config.destination;
+    delete this.config.direction_id;
+    this.emitConfig();
+    if (!this.manual) void this.loadInitialCatalog(generation);
   };
 
   private readonly changeLine = (event: SelectorEvent): void => {
@@ -307,7 +389,12 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
     this.emitConfig();
   }
 
-  private changeNumber(key: 'departures' | 'refresh_interval', event: SelectorEvent, min: number, max: number): void {
+  private changeNumber(
+    key: 'departures' | 'departures_per_destination' | 'refresh_interval',
+    event: SelectorEvent,
+    min: number,
+    max: number,
+  ): void {
     if (!this.config) return;
     const numeric = Number(event.detail.value);
     if (!Number.isFinite(numeric)) return;

@@ -4,7 +4,7 @@
 
 # TAM Card
 
-TAM Card est une carte Lovelace autonome qui affiche dans Home Assistant les prochains passages TaM à Montpellier. L’arrêt, la ligne, la destination et le sens se configurent directement dans le dashboard, sans intégration, entité, capteur, clé d’API, proxy ni serveur supplémentaire.
+TAM Card est une carte Lovelace autonome qui affiche dans Home Assistant les prochains passages TaM à Montpellier. Elle peut suivre une destination précise ou réunir dans une seule carte le prochain passage de chaque destination d’un arrêt et d’une ligne. La configuration se fait directement dans le dashboard, sans intégration, entité, capteur, clé d’API, proxy ni serveur supplémentaire.
 
 La version 4 conserve l’organisation visuelle historique — ligne à gauche, trajet au centre, deux passages à droite — dans une présentation responsive et accessible. Plusieurs cartes peuvent cohabiter sur le même dashboard et mutualisent leurs requêtes identiques.
 
@@ -13,7 +13,7 @@ La version 4 conserve l’organisation visuelle historique — ligne à gauche, 
 ## Fonctionnalités
 
 - prochains passages issus directement de l’API publique Hérault Data compatible CORS ;
-- véritable éditeur visuel avec sélections arrêt → ligne → destination/sens et saisie manuelle de secours ;
+- véritable éditeur visuel avec un mode « une destination » ou « toutes les destinations », des sélections en cascade et une saisie manuelle de secours ;
 - une à cinq échéances, temps réel ou théoriques, triées et dédupliquées ;
 - compte à rebours local actualisé chaque seconde et état discret « À l’approche » ;
 - rafraîchissement réseau toutes les 60 secondes par défaut, suspendu quand l’onglet est masqué ;
@@ -59,7 +59,7 @@ Si vous remplacez une ancienne version, ajoutez temporairement un suffixe comme 
 
 ### Éditeur visuel
 
-Dans un dashboard en mode édition, choisissez **Ajouter une carte**, recherchez **TAM Card**, puis sélectionnez successivement l’arrêt, la ligne et la destination. Changer l’arrêt réinitialise la ligne et la destination ; changer la ligne réinitialise la destination et le sens. Les options d’affichage et de couleur sont disponibles dans le même éditeur.
+Dans un dashboard en mode édition, choisissez **Ajouter une carte**, recherchez **TAM Card**, puis choisissez le mode d’affichage. Le mode historique sélectionne successivement l’arrêt, la ligne et une destination. Le mode « Toutes les destinations » demande seulement l’arrêt et la ligne, puis permet de conserver tous les sens ou de filtrer le sens 0 ou 1. Changer l’arrêt réinitialise la ligne et la destination ; changer la ligne réinitialise la destination et le sens. Les options d’affichage et de couleur sont disponibles dans le même éditeur.
 
 Le catalogue est chargé depuis Hérault Data et mis en cache localement. En cas d’indisponibilité du portail, l’éditeur permet une saisie manuelle et propose de réessayer. Il enregistre toujours les noms de champs de la version 4.
 
@@ -90,25 +90,42 @@ show_absolute_time: false
 compact: false
 ```
 
+### Toutes les destinations dans une carte
+
+```yaml
+type: custom:tam-card
+display_mode: all_destinations
+stop: PABLO PICASSO
+line: '3'
+direction_id: 1 # facultatif ; supprimer pour conserver tous les sens
+departures_per_destination: 3
+refresh_interval: 60
+show_absolute_time: true
+```
+
+Ce mode affiche une ligne par destination actuellement annoncée, triée par prochain passage. Le réglage `departures_per_destination` permet de présenter de 1 à 3 passages pour chacune d’elles et vaut `1` par défaut. Le champ historique `departures` reste réservé au mode `destination`.
+
 Les valeurs textuelles reprennent les libellés du jeu de données. L’éditeur visuel est le moyen le plus sûr de sélectionner une combinaison réellement disponible.
 
 ### Options
 
-| Option                | Type                  | Obligatoire           | Défaut                       | Description                                                                                                         |
-| --------------------- | --------------------- | --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `type`                | chaîne                | oui                   | —                            | Toujours `custom:tam-card`.                                                                                         |
-| `stop`                | chaîne                | oui                   | —                            | Nom de l’arrêt TaM.                                                                                                 |
-| `line`                | chaîne                | recommandé            | inférence historique         | Identifiant commercial, par exemple `"3"`, `"12"` ou `"A"`. Les guillemets YAML évitent toute conversion numérique. |
-| `destination`         | chaîne                | oui pour les horaires | —                            | Girouette/destination (`trip_headsign`).                                                                            |
-| `direction_id`        | `0` ou `1`            | non                   | tous les sens correspondants | Filtre le sens lorsque deux destinations portent le même nom. Ce champ n’est jamais nommé `direction`.              |
-| `departures`          | entier de 1 à 5       | non                   | `2`                          | Nombre de prochains passages affichés.                                                                              |
-| `refresh_interval`    | secondes de 30 à 300  | non                   | `60`                         | Intervalle des appels réseau. Le compte à rebours continue localement chaque seconde.                               |
-| `background_color`    | couleur CSS ou `auto` | non                   | `auto`                       | Fond de la carte. `auto` utilise la couleur officielle de la ligne.                                                 |
-| `text_color`          | couleur CSS ou `auto` | non                   | `auto`                       | Couleur principale du texte avec repli contrasté.                                                                   |
-| `show_line`           | booléen               | non                   | `true`                       | Affiche le badge et l’identité de la ligne.                                                                         |
-| `show_realtime_badge` | booléen               | non                   | `true`                       | Affiche le badge « Temps réel » ou « Théorique ».                                                                   |
-| `show_absolute_time`  | booléen               | non                   | `false`                      | Ajoute l’heure annoncée `HH:mm` au compte à rebours.                                                                |
-| `compact`             | booléen               | non                   | `false`                      | Réduit les espacements pour les dashboards denses.                                                                  |
+| Option                       | Type                                | Obligatoire               | Défaut                       | Description                                                                                                         |
+| ---------------------------- | ----------------------------------- | ------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `type`                       | chaîne                              | oui                       | —                            | Toujours `custom:tam-card`.                                                                                         |
+| `stop`                       | chaîne                              | oui                       | —                            | Nom de l’arrêt TaM.                                                                                                 |
+| `display_mode`               | `destination` ou `all_destinations` | non                       | `destination`                | Suit une destination précise ou réunit le prochain passage de chaque destination.                                   |
+| `line`                       | chaîne                              | recommandé                | inférence historique         | Identifiant commercial, par exemple `"3"`, `"12"` ou `"A"`. Les guillemets YAML évitent toute conversion numérique. |
+| `destination`                | chaîne                              | oui en mode `destination` | —                            | Girouette/destination (`trip_headsign`). Ignorée en mode `all_destinations`.                                        |
+| `direction_id`               | `0` ou `1`                          | non                       | tous les sens correspondants | Filtre le sens, y compris en mode toutes les destinations. Ce champ n’est jamais nommé `direction`.                 |
+| `departures`                 | entier de 1 à 5                     | non                       | `2`                          | Nombre de passages en mode `destination`.                                                                           |
+| `departures_per_destination` | entier de 1 à 3                     | non                       | `1`                          | Nombre de passages affichés pour chaque destination en mode `all_destinations`.                                     |
+| `refresh_interval`           | secondes de 30 à 300                | non                       | `60`                         | Intervalle des appels réseau. Le compte à rebours continue localement chaque seconde.                               |
+| `background_color`           | couleur CSS ou `auto`               | non                       | `auto`                       | Fond de la carte. `auto` utilise la couleur officielle de la ligne.                                                 |
+| `text_color`                 | couleur CSS ou `auto`               | non                       | `auto`                       | Couleur principale du texte avec repli contrasté.                                                                   |
+| `show_line`                  | booléen                             | non                       | `true`                       | Affiche le badge et l’identité de la ligne.                                                                         |
+| `show_realtime_badge`        | booléen                             | non                       | `true`                       | Affiche le badge « Temps réel » ou « Théorique ».                                                                   |
+| `show_absolute_time`         | booléen                             | non                       | `false`                      | Ajoute l’heure annoncée `HH:mm` au compte à rebours.                                                                |
+| `compact`                    | booléen                             | non                       | `false`                      | Réduit les espacements pour les dashboards denses.                                                                  |
 
 Les valeurs hors limites sont bornées par la normalisation centrale. Une couleur personnalisée invalide est refusée afin de conserver un rendu sûr et lisible.
 Pour un fond transparent ou fourni par une variable CSS personnalisée, renseignez aussi `text_color` si la couleur de texte du thème n’offre pas le contraste souhaité.
@@ -145,16 +162,16 @@ Après la migration, si l’ancien rendu persiste, suivez la section [Dépannage
 
 ## Temps réel, cache et fonctionnement hors connexion
 
-La carte interroge directement le jeu [`tam_mmm_tpsreel`](https://www.herault-data.fr/explore/dataset/tam_mmm_tpsreel/api/) avec l’[API Explore v2.1](https://help.opendatasoft.com/apis/ods-explore-v2/) de Hérault Data. La requête est construite avec `URLSearchParams`, des littéraux ODSQL échappés et des filtres sur l’arrêt, la ligne, la destination, le sens et les délais positifs. Aucun secret n’est nécessaire et aucune donnée distante n’est injectée comme HTML.
+La carte interroge directement le jeu [`tam_mmm_tpsreel`](https://www.herault-data.fr/explore/dataset/tam_mmm_tpsreel/api/) avec l’[API Explore v2.1](https://help.opendatasoft.com/apis/ods-explore-v2/) de Hérault Data. La requête est construite avec `URLSearchParams`, des littéraux ODSQL échappés et des filtres sur l’arrêt, la ligne, la destination éventuelle, le sens et les délais positifs. Aucun secret n’est nécessaire et aucune donnée distante n’est injectée comme HTML.
 
-À la réception d’un passage, TAM Card calcule son instant prédit à partir de `delay_sec` et de l’heure locale de réception. L’affichage décroît ensuite toutes les secondes sans requête supplémentaire. Une arrivée à zéro est retirée et provoque un rafraîchissement anticipé. Les passages partagent les garanties suivantes :
+À la réception d’un passage, TAM Card recale le compteur sur `departure_time` dans le fuseau de Montpellier. `delay_sec`, calculé par la source à l’instant de génération du jeu, sert à choisir le bon jour autour de minuit et reste le repli si l’heure est invalide. L’affichage décroît ensuite toutes les secondes sans requête supplémentaire. Une arrivée à zéro est retirée et provoque un rafraîchissement anticipé lorsque cela est utile. Les passages partagent les garanties suivantes :
 
 - déduplication prioritaire par `course_sae`, avec clé de repli ;
 - tri par temps restant et suppression des valeurs négatives ou invalides ;
 - distinction entre données temps réel et horaires théoriques ;
 - timeout réseau, annulation propre, traitement spécifique de HTTP 429 et des réponses invalides.
 
-Les instances demandant la même combinaison arrêt/ligne/destination/sens partagent la même promesse et un cache de courte durée. La déconnexion d’une carte ne coupe pas une requête encore utilisée par une autre. Les listes de l’éditeur disposent d’un cache plus long, versionné dans `localStorage` ; les horaires live ne sont jamais conservés durablement sur disque.
+Les instances demandant le même mode et la même combinaison arrêt/ligne/destination/sens partagent la même promesse et un cache de courte durée. En mode agrégé, une fenêtre bornée de 100 enregistrements est validée et dédupliquée avant de retenir localement le prochain passage de chaque destination. La déconnexion d’une carte ne coupe pas une requête encore utilisée par une autre. Les listes de l’éditeur disposent d’un cache plus long, versionné dans `localStorage` ; les horaires live ne sont jamais conservés durablement sur disque.
 
 Quand le navigateur passe hors connexion ou que l’API échoue, le dernier résultat valide en mémoire reste affiché avec un indicateur de donnée ancienne. Sans résultat antérieur, un message d’erreur explicite est présenté. Un résultat vide signifie « aucun passage annoncé » et n’est pas automatiquement transformé en « fin de service ».
 
@@ -173,6 +190,7 @@ La table committée permet au build et à la carte de fonctionner sans télécha
 - Les alertes officielles, perturbations et positions de véhicules ne sont pas disponibles dans cette carte frontend pure.
 - La carte dépend de l’accès CORS du navigateur à Hérault Data. Une politique réseau, un bloqueur ou une indisponibilité du portail peut empêcher les mises à jour.
 - Les noms et associations de lignes suivent les données publiées. Une évolution du réseau peut nécessiter une nouvelle sélection dans l’éditeur et une régénération facultative des styles.
+- Le mode toutes les destinations ne montre que les destinations possédant au moins un passage dans la fenêtre live bornée renvoyée par la source ; il n’invente pas une ligne « aucun passage » à partir du catalogue.
 - Le cache live est volontairement volatil : après un rechargement complet hors connexion, aucun ancien horaire n’est inventé ou relu depuis `localStorage`.
 
 ## Attribution et licences
@@ -264,6 +282,18 @@ direction_id: 1
 destination: LATTES CENTRE
 departures: 2
 refresh_interval: 60
+```
+
+To show the nearest departures for every currently announced destination in a single card, use:
+
+```yaml
+type: custom:tam-card
+display_mode: all_destinations
+stop: PABLO PICASSO
+line: '3'
+direction_id: 1 # optional; omit for all directions
+departures_per_destination: 3
+show_absolute_time: true
 ```
 
 The source generally updates about once per minute; the countdown ticks locally each second. Identical cards share in-flight requests and a short-lived memory cache. The last valid result can be shown as stale after an error, while editor catalogues have a versioned `localStorage` fallback. Live departures are never persisted indefinitely. Legacy `direction`, `textColor`, and `backgroundColor` fields are accepted but deprecated; new configuration uses `destination`, `direction_id`, `text_color`, and `background_color`.

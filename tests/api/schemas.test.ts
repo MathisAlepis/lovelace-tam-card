@@ -85,6 +85,27 @@ describe('Explore response schemas', () => {
     expect(result.map((departure) => departure.delay_sec)).toEqual([10, 20, 30, 40, 60]);
   });
 
+  it('retains more than five validated rows when an explicit aggregate maximum is supplied', () => {
+    const payload = {
+      results: Array.from({ length: 8 }, (_, index) =>
+        departureRecord(index + 1, {
+          course_sae: `aggregate-${index}`,
+          trip_headsign: `DESTINATION ${index}`,
+        }),
+      ),
+    };
+
+    expect(parseDeparturesResponse(payload, 0, 100, 100)).toHaveLength(8);
+    expect(parseDeparturesResponse(payload, 0, 100)).toHaveLength(5);
+
+    const oversized = {
+      results: Array.from({ length: 101 }, (_, index) =>
+        departureRecord(index + 1, { course_sae: `bounded-${index}` }),
+      ),
+    };
+    expect(parseDeparturesResponse(oversized, 0, 101, 100)).toHaveLength(100);
+  });
+
   it('returns an empty array for a valid empty response', () => {
     expect(parseDeparturesResponse({ results: [] }, 0, 2)).toEqual([]);
   });

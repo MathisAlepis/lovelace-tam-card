@@ -72,6 +72,7 @@ export interface DepartureCacheKeyInput {
   readonly destination?: unknown;
   readonly trip_headsign?: unknown;
   readonly direction_id?: unknown;
+  readonly all_destinations?: unknown;
 }
 
 export type CatalogCacheKind = 'stops' | 'lines' | 'destinations' | 'journeys';
@@ -139,10 +140,12 @@ function encodeKeyParts(parts: readonly unknown[]): string {
 
 /** A deterministic key that intentionally ignores the requested display limit. */
 export function createDepartureCacheKey(query: DepartureCacheKeyInput): string {
+  const allDestinations = query.all_destinations === true;
   return `departures:${encodeKeyParts([
+    allDestinations ? 'all_destinations' : 'destination',
     query.stop ?? query.stop_name,
     query.line ?? query.route_short_name,
-    query.destination ?? query.trip_headsign,
+    allDestinations ? '' : (query.destination ?? query.trip_headsign),
     query.direction_id,
   ])}`;
 }

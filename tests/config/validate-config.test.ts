@@ -43,6 +43,31 @@ describe('configuration validation and line inference', () => {
     expect(isConfigComplete(result.config)).toBe(false);
   });
 
+  it('requires only stop and line in the explicit all-destinations mode', () => {
+    const complete = validateConfig({
+      type: 'custom:tam-card',
+      stop: 'Pablo Picasso',
+      line: '3',
+      display_mode: 'all_destinations',
+      direction_id: 0,
+    });
+
+    expect(complete.valid).toBe(true);
+    expect(isConfigComplete(complete.config)).toBe(true);
+    expect(needsLineInference(complete.config)).toBe(false);
+    expect(complete.config).not.toHaveProperty('destination');
+
+    const missingLine = validateConfig({
+      type: 'custom:tam-card',
+      stop: 'Pablo Picasso',
+      display_mode: 'all_destinations',
+    });
+    expect(missingLine.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'missing-line', field: 'line' })]),
+    );
+    expect(needsLineInference(missingLine.config)).toBe(false);
+  });
+
   it('resolves a single catalog line without mutating the config', () => {
     const config = normalizeConfig({ stop: 'Pablo Picasso', destination: 'Lattes Centre' });
     const resolved = resolveConfigLine(config, [3, '3', null]);

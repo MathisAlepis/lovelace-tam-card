@@ -206,6 +206,104 @@ export const cardStyles = css`
     animation: tam-pulse 1.8s ease-out infinite;
   }
 
+  .overview-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .overview-heading {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .overview-summary {
+    overflow: hidden;
+    font-size: 0.72rem;
+    opacity: 0.72;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .destination-list {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    list-style: none;
+  }
+
+  .destination-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 45px;
+    padding: 7px 16px;
+    box-sizing: border-box;
+  }
+
+  .destination-row + .destination-row {
+    border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  }
+
+  .destination-row.has-approaching {
+    background: color-mix(in srgb, var(--warning-color, #ff9800) 16%, transparent);
+  }
+
+  .destination-name {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+    font-weight: 650;
+  }
+
+  .destination-name > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .destination-times {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .destination-time {
+    display: grid;
+    align-content: center;
+    justify-items: end;
+    min-width: 64px;
+    padding: 0 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .destination-time:first-child {
+    padding-left: 0;
+  }
+
+  .destination-time:last-child {
+    padding-right: 0;
+  }
+
+  .destination-time + .destination-time {
+    border-left: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  }
+
+  :host([compact]) .overview-header {
+    padding: 8px 12px;
+  }
+
+  :host([compact]) .destination-row {
+    min-height: 38px;
+    padding: 5px 12px;
+  }
+
   .message-layout {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -301,6 +399,31 @@ export const cardStyles = css`
       max-width: 100%;
       font-size: 0.88rem;
       text-overflow: ellipsis;
+    }
+
+    .overview-header,
+    .destination-row {
+      padding-inline: 12px;
+    }
+
+    .destination-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .destination-name {
+      font-size: 0.88rem;
+    }
+
+    .destination-times {
+      justify-self: stretch;
+    }
+
+    .destination-time {
+      flex: 1 1 0;
+      justify-items: center;
+      min-width: 0;
+      padding-inline: 6px;
     }
   }
 
