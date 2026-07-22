@@ -15,7 +15,7 @@ import {
 } from './config';
 import { CARD_TAG, CARD_VERSION, EDITOR_TAG } from './const';
 import { RouteStyleController } from './data/route-style-controller';
-import { getRoutePresentation, readableTextColor } from './data/route-styles';
+import { getRoutePresentation, isTranslucentColor, readableTextColor } from './data/route-styles';
 import { type CacheLease, sharedTamCache } from './data/shared-cache';
 import { TamDataController, type LiveTamDeparture } from './data/tam-data-controller';
 import { localize } from './localize/localize';
@@ -27,6 +27,31 @@ const DOCUMENTATION_URL = 'https://github.com/MathisAlepis/lovelace-tam-card';
 interface HassThemeView {
   language?: string;
   themes?: { darkMode?: boolean; theme?: string };
+}
+
+function colorVariables(
+  config: NormalizedTamCardConfig,
+  route?: ReturnType<typeof getRoutePresentation>,
+): Record<string, string> {
+  const background = config.background_color === 'auto' ? route?.background : config.background_color;
+  const text =
+    config.text_color === 'auto'
+      ? config.background_color === 'auto'
+        ? route?.text
+        : background
+          ? readableTextColor(background)
+          : undefined
+      : config.text_color;
+  const variables: Record<string, string> = {};
+  if (background) variables['--tam-background'] = background;
+  if (text) variables['--tam-text'] = text;
+  // Inverting a translucent background would also make badge text translucent.
+  // Let the CSS defaults derive a readable badge palette in that case.
+  if (background && text && !isTranslucentColor(background)) {
+    variables['--tam-badge-background'] = text;
+    variables['--tam-badge-text'] = background;
+  }
+  return variables;
 }
 
 interface DestinationDepartureGroup {
@@ -155,14 +180,12 @@ export class TamCard extends LitElement {
           'mdi:clock-alert-outline',
           localize('card.stale', this.language),
           localize('card.stale_detail', this.language),
-          true,
         );
       }
       return this.renderMessage(
         'mdi:clock-outline',
         localize('card.no_departures_title', this.language),
         localize('card.no_departures_detail', this.language),
-        true,
       );
     }
 
@@ -182,13 +205,6 @@ export class TamCard extends LitElement {
   ): TemplateResult {
     const config = this.config as NormalizedTamCardConfig & { line: string; destination: string };
     const route = getRoutePresentation(config.line, this.themePrimaryColor, this.routeStyles.styles);
-    const background = config.background_color === 'auto' ? route.background : config.background_color;
-    const text =
-      config.text_color === 'auto'
-        ? config.background_color === 'auto'
-          ? route.text
-          : readableTextColor(background)
-        : config.text_color;
     const approaching = departures[0]?.isApproaching ?? false;
     const sourceLabel = this.departureSourceLabel(departures);
     const accessibilityStates = [
@@ -198,12 +214,8 @@ export class TamCard extends LitElement {
     ].join('. ');
     const lineLabel = localize('card.line_label', this.language, { line: config.line });
     const departureSummary = departures.map((departure) => this.departureAccessibilityLabel(departure)).join(', ');
-    const styles = {
-      '--tam-background': background,
-      '--tam-text': text,
-      '--tam-badge-background': text,
-      '--tam-badge-text': background,
-    };
+    const styles = colorVariables(config, route);
+    const showIdentity = config.show_icon || config.show_line;
 
     return html`
       <ha-card
@@ -212,11 +224,21 @@ export class TamCard extends LitElement {
         tabindex="0"
         aria-label=${`${localize('card.label', this.language)}. ${lineLabel}. ${config.stop} → ${config.destination}. ${departureSummary}. ${accessibilityStates}`}
       >
-        <div class="layout">
-          <div class="identity" aria-label=${lineLabel}>
-            <ha-icon class="mode-icon" .icon=${route.icon} aria-hidden="true"></ha-icon>
-            ${config.show_line ? html`<span class="line-badge">${config.line}</span>` : nothing}
-          </div>
+        <div class=${showIdentity ? 'layout' : 'layout without-identity'}>
+          ${
+            showIdentity
+              ? html`
+                  <div class="identity" aria-label=${lineLabel}>
+                    ${
+                      config.show_icon
+                        ? html`<ha-icon class="mode-icon" .icon=${route.icon} aria-hidden="true"></ha-icon>`
+                        : nothing
+                    }
+                    ${config.show_line ? html`<span class="line-badge">${config.line}</span>` : nothing}
+                  </div>
+                `
+              : nothing
+          }
 
           <div class="journey" title=${`${config.stop} → ${config.destination}`}>
             <span class="stop">${config.stop}</span>
@@ -251,13 +273,6 @@ export class TamCard extends LitElement {
   ): TemplateResult {
     const config = this.config as NormalizedTamCardConfig & { line: string };
     const route = getRoutePresentation(config.line, this.themePrimaryColor, this.routeStyles.styles);
-    const background = config.background_color === 'auto' ? route.background : config.background_color;
-    const text =
-      config.text_color === 'auto'
-        ? config.background_color === 'auto'
-          ? route.text
-          : readableTextColor(background)
-        : config.text_color;
     const approaching = departures.some((departure) => departure.isApproaching);
     const destinationGroups = this.groupDeparturesByDestination(departures);
     const sourceLabel = this.departureSourceLabel(departures);
@@ -284,12 +299,8 @@ export class TamCard extends LitElement {
       ...(stale ? [localize('card.stale', this.language)] : []),
       ...(approaching ? [localize('card.approaching', this.language)] : []),
     ].join('. ');
-    const styles = {
-      '--tam-background': background,
-      '--tam-text': text,
-      '--tam-badge-background': text,
-      '--tam-badge-text': background,
-    };
+    const styles = colorVariables(config, route);
+    const showIdentity = config.show_icon || config.show_line;
 
     return html`
       <ha-card
@@ -298,11 +309,21 @@ export class TamCard extends LitElement {
         tabindex="0"
         aria-label=${`${localize('card.label', this.language)}. ${lineLabel}. ${config.stop}. ${countLabel}. ${directionLabel}. ${departureSummary}. ${accessibilityStates}`}
       >
-        <div class="overview-header">
-          <div class="identity" aria-label=${lineLabel}>
-            <ha-icon class="mode-icon" .icon=${route.icon} aria-hidden="true"></ha-icon>
-            ${config.show_line ? html`<span class="line-badge">${config.line}</span>` : nothing}
-          </div>
+        <div class=${showIdentity ? 'overview-header' : 'overview-header without-identity'}>
+          ${
+            showIdentity
+              ? html`
+                  <div class="identity" aria-label=${lineLabel}>
+                    ${
+                      config.show_icon
+                        ? html`<ha-icon class="mode-icon" .icon=${route.icon} aria-hidden="true"></ha-icon>`
+                        : nothing
+                    }
+                    ${config.show_line ? html`<span class="line-badge">${config.line}</span>` : nothing}
+                  </div>
+                `
+              : nothing
+          }
           <div class="overview-heading">
             <span class="stop">${config.stop}</span>
             <span class="overview-summary">
@@ -397,7 +418,7 @@ export class TamCard extends LitElement {
 
   private renderLoading(label: string): TemplateResult {
     return html`
-      <ha-card aria-label=${label} aria-busy="true">
+      <ha-card style=${styleMap(this.currentColorVariables())} aria-label=${label} aria-busy="true">
         <div class="message-layout">
           <ha-icon icon="mdi:tram" aria-hidden="true"></ha-icon>
           <div>
@@ -419,22 +440,12 @@ export class TamCard extends LitElement {
         icon = 'mdi:wifi-off';
       }
     }
-    return this.renderMessage(icon, localize('card.error_title', this.language), detail, true, true);
+    return this.renderMessage(icon, localize('card.error_title', this.language), detail, true);
   }
 
-  private renderMessage(
-    icon: string,
-    title: string,
-    detail: string,
-    useRouteColor = false,
-    retry = false,
-  ): TemplateResult {
-    const route = this.config?.line
-      ? getRoutePresentation(this.config.line, this.themePrimaryColor, this.routeStyles.styles)
-      : undefined;
-    const styles = useRouteColor && route ? { '--tam-background': route.background, '--tam-text': route.text } : {};
+  private renderMessage(icon: string, title: string, detail: string, retry = false): TemplateResult {
     return html`
-      <ha-card style=${styleMap(styles)} tabindex="0" aria-label=${`${title}. ${detail}`}>
+      <ha-card style=${styleMap(this.currentColorVariables())} tabindex="0" aria-label=${`${title}. ${detail}`}>
         <div class="message-layout">
           <ha-icon .icon=${icon} aria-hidden="true"></ha-icon>
           <div>
@@ -451,6 +462,14 @@ export class TamCard extends LitElement {
         </div>
       </ha-card>
     `;
+  }
+
+  private currentColorVariables(): Record<string, string> {
+    if (!this.config) return {};
+    const route = this.config.line
+      ? getRoutePresentation(this.config.line, this.themePrimaryColor, this.routeStyles.styles)
+      : undefined;
+    return colorVariables(this.config, route);
   }
 
   private readonly retry = (): void => {

@@ -60,6 +60,7 @@ function createConfig(overrides: Partial<NormalizedTamCardConfig> = {}): Normali
     refresh_interval: 60,
     background_color: 'auto',
     text_color: 'auto',
+    show_icon: true,
     show_line: true,
     show_realtime_badge: true,
     show_absolute_time: false,

@@ -16,6 +16,7 @@ export interface TamCardConfig extends LovelaceCardConfig {
   refresh_interval?: number;
   background_color?: string;
   text_color?: string;
+  show_icon?: boolean;
   show_line?: boolean;
   show_realtime_badge?: boolean;
   show_absolute_time?: boolean;
@@ -42,6 +43,7 @@ export interface NormalizedTamCardConfig extends LovelaceCardConfig {
   refresh_interval: number;
   background_color: string;
   text_color: string;
+  show_icon: boolean;
   show_line: boolean;
   show_realtime_badge: boolean;
   show_absolute_time: boolean;

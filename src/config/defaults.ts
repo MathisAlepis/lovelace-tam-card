@@ -17,6 +17,7 @@ export type TamCardDefaults = Pick<
   | 'refresh_interval'
   | 'background_color'
   | 'text_color'
+  | 'show_icon'
   | 'show_line'
   | 'show_realtime_badge'
   | 'show_absolute_time'
@@ -30,6 +31,7 @@ export const DEFAULT_TAM_CARD_CONFIG: Readonly<TamCardDefaults> = Object.freeze(
   refresh_interval: 60,
   background_color: 'auto',
   text_color: 'auto',
+  show_icon: true,
   show_line: true,
   show_realtime_badge: true,
   show_absolute_time: false,

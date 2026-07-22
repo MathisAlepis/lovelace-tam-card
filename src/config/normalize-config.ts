@@ -244,6 +244,7 @@ export const normalizeConfig = (input: unknown, options: NormalizeConfigOptions 
       options.cssSupports,
     ),
     text_color: normalizedColor(modernText, DEFAULT_TAM_CARD_CONFIG.text_color, options.cssSupports),
+    show_icon: normalizedBoolean(config.show_icon, DEFAULT_TAM_CARD_CONFIG.show_icon),
     show_line: normalizedBoolean(config.show_line, DEFAULT_TAM_CARD_CONFIG.show_line),
     show_realtime_badge: normalizedBoolean(config.show_realtime_badge, DEFAULT_TAM_CARD_CONFIG.show_realtime_badge),
     show_absolute_time: normalizedBoolean(config.show_absolute_time, DEFAULT_TAM_CARD_CONFIG.show_absolute_time),

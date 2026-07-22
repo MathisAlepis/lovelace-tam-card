@@ -20,6 +20,7 @@ describe('normalizeConfig', () => {
           refresh_interval: 90,
           background_color: '#102030',
           text_color: 'white',
+          show_icon: false,
           show_line: false,
           show_realtime_badge: false,
           show_absolute_time: true,
@@ -39,6 +40,7 @@ describe('normalizeConfig', () => {
       refresh_interval: 90,
       background_color: '#102030',
       text_color: 'white',
+      show_icon: false,
       show_line: false,
       show_realtime_badge: false,
       show_absolute_time: true,
@@ -90,6 +92,7 @@ describe('normalizeConfig', () => {
       refresh_interval: 60,
       background_color: 'auto',
       text_color: 'auto',
+      show_icon: true,
       show_line: true,
       show_realtime_badge: true,
       show_absolute_time: false,
@@ -160,5 +163,14 @@ describe('normalizeConfig', () => {
     expect(fallbackSupportsCssColor('rgb(999, 0, 0)')).toBe(false);
     expect(fallbackSupportsCssColor('red; background: black')).toBe(false);
     expect(isValidCssColor('made-up', pureCssSupports)).toBe(false);
+  });
+
+  it('accepts named, hexadecimal and transparent CSS colors', () => {
+    expect(
+      normalizeConfig({ background_color: '#12345680', text_color: 'rebeccapurple' }, { cssSupports: pureCssSupports }),
+    ).toMatchObject({ background_color: '#12345680', text_color: 'rebeccapurple' });
+    expect(
+      normalizeConfig({ background_color: '#0f08', text_color: 'transparent' }, { cssSupports: pureCssSupports }),
+    ).toMatchObject({ background_color: '#0f08', text_color: 'transparent' });
   });
 });

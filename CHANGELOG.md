@@ -2,6 +2,19 @@
 
 Ce projet suit [Semantic Versioning](https://semver.org/lang/fr/) et s’inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [4.1.0] - 2026-07-22
+
+### Ajouté
+
+- Documentation explicite des noms CSS, formats hexadécimaux et couleurs avec transparence acceptés par `background_color` et `text_color`.
+- Option `show_icon` pour masquer l’icône du véhicule sans affecter le badge de ligne.
+
+### Corrigé
+
+- Saisie visuelle des couleurs conservée pendant l’effacement de `auto` et la composition d’une valeur hexadécimale ou nommée.
+- Couleurs personnalisées conservées dans les états de chargement, d’absence de passages et d’erreur.
+- Palette des badges conservée lisible lorsque le fond personnalisé est semi-transparent.
+
 ## [4.0.0] - 2026-07-22
 
 ### Ajouté
@@ -46,4 +59,5 @@ Ce projet suit [Semantic Versioning](https://semver.org/lang/fr/) et s’inspire
 - Validation tolérante des réponses distantes et stricte de la configuration locale.
 - Timeouts, annulation, traitement des erreurs HTTP et absence d’injection HTML à partir des données distantes.
 
+[4.1.0]: https://github.com/MathisAlepis/lovelace-tam-card/releases/tag/v4.1.0
 [4.0.0]: https://github.com/MathisAlepis/lovelace-tam-card/releases/tag/v4.0.0

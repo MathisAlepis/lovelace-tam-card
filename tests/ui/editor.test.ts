@@ -41,6 +41,7 @@ const MODERN_CONFIG: TamCardConfig = {
   refresh_interval: 60,
   background_color: 'auto',
   text_color: 'auto',
+  show_icon: true,
   show_line: true,
   show_realtime_badge: true,
   show_absolute_time: false,
@@ -153,6 +154,7 @@ describe('TAM card editor UI', () => {
       refresh_interval: 60,
       background_color: '#010203',
       text_color: '#fefefe',
+      show_icon: true,
       show_line: true,
       show_realtime_badge: true,
       show_absolute_time: false,
@@ -166,6 +168,18 @@ describe('TAM card editor UI', () => {
     expect(journeyCalls).toHaveLength(1);
     expect(journeyCalls[0]?.[1]).toEqual(['PABLO PICASSO']);
     expect(catalogHarness.getCatalog.mock.calls.filter(([kind]) => kind === 'destinations')).toHaveLength(0);
+  });
+
+  it('lets the visual editor hide the vehicle icon', async () => {
+    const editor = mountEditor();
+    const events = collectConfigEvents(editor);
+    editor.setConfig(MODERN_CONFIG);
+
+    const showIcon = await waitForSelector(editor, 'Afficher l’icône du véhicule');
+    expect(showIcon.value).toBe(true);
+
+    showIcon.dispatchEvent(valueChanged(false));
+    expect(lastConfig(events)).toMatchObject({ show_icon: false, show_line: true });
   });
 
   it('switches explicitly to one nearest passage per destination and offers a direction filter', async () => {
@@ -216,6 +230,48 @@ describe('TAM card editor UI', () => {
     expect(findSelector(editor, 'Destination')).toBeDefined();
     expect(findSelector(editor, 'Nombre de passages')).toBeDefined();
     expect(findSelector(editor, 'Passages par destination')).toBeUndefined();
+  });
+
+  it('documents and preserves named, hexadecimal and transparent color values', async () => {
+    const editor = mountEditor();
+    const events = collectConfigEvents(editor);
+    editor.setConfig(MODERN_CONFIG);
+
+    const background = await waitForSelector(editor, 'Couleur de fond');
+    const text = await waitForSelector(editor, 'Couleur du texte');
+    background.dispatchEvent(valueChanged(''));
+    await editor.updateComplete;
+    expect(findSelector(editor, 'Couleur de fond')?.value).toBe('');
+    expect(events.some((event) => event.detail.config.background_color === '')).toBe(false);
+
+    findSelector(editor, 'Couleur de fond')?.dispatchEvent(valueChanged('#12'));
+    await editor.updateComplete;
+    expect(findSelector(editor, 'Couleur de fond')?.value).toBe('#12');
+    expect(events.some((event) => event.detail.config.background_color === '#12')).toBe(false);
+
+    findSelector(editor, 'Couleur de fond')?.dispatchEvent(valueChanged('#12345680'));
+    text.dispatchEvent(valueChanged('rebeccapurple'));
+    await editor.updateComplete;
+
+    expect(lastConfig(events)).toMatchObject({ background_color: '#12345680', text_color: 'rebeccapurple' });
+    expect(editor.shadowRoot?.textContent).toContain('#RRGGBBAA');
+    expect(editor.shadowRoot?.textContent).toContain('transparent');
+  });
+
+  it('restores the last valid color when an incomplete draft loses focus', async () => {
+    const editor = mountEditor();
+    editor.setConfig({ ...MODERN_CONFIG, background_color: '#123456' });
+
+    const background = await waitForSelector(editor, 'Couleur de fond');
+    background.dispatchEvent(valueChanged('#12'));
+    await editor.updateComplete;
+    expect(findSelector(editor, 'Couleur de fond')?.value).toBe('#12');
+
+    findSelector(editor, 'Couleur de fond')?.dispatchEvent(
+      new FocusEvent('focusout', { bubbles: true, composed: true }),
+    );
+    await editor.updateComplete;
+    expect(findSelector(editor, 'Couleur de fond')?.value).toBe('#123456');
   });
 
   it('resets destination and direction when the selected line changes', async () => {

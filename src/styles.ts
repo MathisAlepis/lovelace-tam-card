@@ -33,6 +33,10 @@ export const cardStyles = css`
     box-sizing: border-box;
   }
 
+  .layout.without-identity {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   :host([compact]) .layout {
     --tam-gap: 10px;
     --tam-min-height: 52px;
@@ -214,6 +218,10 @@ export const cardStyles = css`
     padding: 12px 16px;
   }
 
+  .overview-header.without-identity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .overview-heading {
     display: grid;
     min-width: 0;
@@ -372,6 +380,10 @@ export const cardStyles = css`
     .layout {
       grid-template-columns: auto minmax(0, 1fr);
       gap: 9px 12px;
+    }
+
+    .layout.without-identity {
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .journey {

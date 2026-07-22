@@ -76,6 +76,7 @@ const COMPLETE_CONFIG: TamCardConfig = {
   refresh_interval: 60,
   background_color: 'auto',
   text_color: 'auto',
+  show_icon: true,
   show_line: true,
   show_realtime_badge: true,
   show_absolute_time: false,
@@ -214,6 +215,45 @@ describe('TAM card UI', () => {
     expect((root?.querySelector('.mode-icon') as { icon?: string } | null)?.icon).toBe('mdi:bus');
   });
 
+  it('hides the vehicle icon independently from the line badge', async () => {
+    const card = await mountCard({ ...COMPLETE_CONFIG, show_icon: false });
+    await renderState(card, {
+      status: 'ready',
+      departures: [departure(4)],
+      isLoading: false,
+      isStale: false,
+    });
+
+    const shadow = cardShadow(card);
+    expect(shadow.querySelector('.mode-icon')).toBeNull();
+    expect(shadow.querySelector('.line-badge')?.textContent).toBe('3');
+    expect(shadow.querySelector('.identity')).not.toBeNull();
+    expect(shadow.querySelector('.layout')?.classList.contains('without-identity')).toBe(false);
+  });
+
+  it.each([
+    { displayMode: 'destination' as const, container: '.layout' },
+    { displayMode: 'all_destinations' as const, container: '.overview-header' },
+  ])('removes the empty identity column in $displayMode mode', async ({ displayMode, container }) => {
+    const card = await mountCard({
+      ...COMPLETE_CONFIG,
+      display_mode: displayMode,
+      ...(displayMode === 'all_destinations' ? { destination: undefined } : {}),
+      show_icon: false,
+      show_line: false,
+    });
+    await renderState(card, {
+      status: 'ready',
+      departures: [departure(4)],
+      isLoading: false,
+      isStale: false,
+    });
+
+    const shadow = cardShadow(card);
+    expect(shadow.querySelector('.identity')).toBeNull();
+    expect(shadow.querySelector(container)?.classList.contains('without-identity')).toBe(true);
+  });
+
   it('uses a restrained approaching state and the “À l’approche” wording', async () => {
     const card = await mountCard();
     await renderState(card, {
@@ -299,7 +339,11 @@ describe('TAM card UI', () => {
   });
 
   it('does not mislabel an empty response as the end of service', async () => {
-    const card = await mountCard();
+    const card = await mountCard({
+      ...COMPLETE_CONFIG,
+      background_color: '#12345680',
+      text_color: 'white',
+    });
     await renderState(card, {
       status: 'empty',
       departures: [],
@@ -310,6 +354,34 @@ describe('TAM card UI', () => {
     const shadow = cardShadow(card);
     expect(shadow.querySelector('.message-title')?.textContent).toBe('Aucun passage annoncé');
     expect(shadow.textContent).not.toContain('Fin de service');
+    const emptyCard = shadow.querySelector('ha-card') as HTMLElement;
+    expect(emptyCard.style.getPropertyValue('--tam-background')).toBe('#12345680');
+    expect(emptyCard.style.getPropertyValue('--tam-text')).toBe('white');
+  });
+
+  it('preserves configured colors while loading and on errors', async () => {
+    const card = await mountCard({
+      ...COMPLETE_CONFIG,
+      background_color: 'navy',
+      text_color: '#ffffff',
+    });
+    const expectConfiguredColors = (): void => {
+      const surface = cardShadow(card).querySelector('ha-card') as HTMLElement;
+      expect(surface.style.getPropertyValue('--tam-background')).toBe('navy');
+      expect(surface.style.getPropertyValue('--tam-text')).toBe('#ffffff');
+    };
+
+    await renderState(card, { status: 'loading', departures: [], isLoading: true, isStale: false });
+    expectConfiguredColors();
+
+    await renderState(card, {
+      status: 'error',
+      departures: [],
+      isLoading: false,
+      isStale: false,
+      error: new HeraultApiError('network', 'Failed to fetch'),
+    });
+    expectConfiguredColors();
   });
 
   it('renders a network error and wires the retry button to a forced refresh', async () => {
@@ -413,6 +485,26 @@ describe('TAM card UI', () => {
     expect(lightSurface.style.getPropertyValue('--tam-text')).toBe('#000000');
     expect(darkSurface.style.getPropertyValue('--tam-background')).toBe('#111111');
     expect(darkSurface.style.getPropertyValue('--tam-text')).toBe('#FFFFFF');
+  });
+
+  it('keeps badges readable on translucent hexadecimal backgrounds', async () => {
+    const card = await mountCard({
+      ...COMPLETE_CONFIG,
+      background_color: '#12345680',
+      text_color: 'white',
+    });
+    await renderState(card, {
+      status: 'ready',
+      departures: [departure(4)],
+      isLoading: false,
+      isStale: false,
+    });
+    const surface = cardShadow(card).querySelector('ha-card') as HTMLElement;
+
+    expect(surface.style.getPropertyValue('--tam-background')).toBe('#12345680');
+    expect(surface.style.getPropertyValue('--tam-text')).toBe('white');
+    expect(surface.style.getPropertyValue('--tam-badge-background')).toBe('');
+    expect(surface.style.getPropertyValue('--tam-badge-text')).toBe('');
   });
 
   it('exposes the Lovelace sizing, editor, preview and customCards contracts', async () => {

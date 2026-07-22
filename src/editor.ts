@@ -3,7 +3,7 @@ import { LitElement, html, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { heraultDataClient } from './api';
-import { normalizeConfig } from './config';
+import { fallbackSupportsCssColor, isValidCssColor, normalizeConfig } from './config';
 import { CARD_TYPE, EDITOR_TAG } from './const';
 import { sharedTamCache } from './data/shared-cache';
 import { localize } from './localize/localize';
@@ -13,10 +13,19 @@ import type { DirectionId, TamCardConfig, TamDestination, TamDisplayMode, TamJou
 type EditableConfig = Omit<Partial<TamCardConfig>, 'type'> & { type: typeof CARD_TYPE };
 type CatalogLoading = 'stops' | 'lines' | 'destinations';
 type SelectorEvent = CustomEvent<{ value: unknown }>;
+type ColorKey = 'background_color' | 'text_color';
+type ColorDrafts = Record<ColorKey, string>;
 
 const textValue = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 const sameText = (left: string, right: string): boolean =>
   left.localeCompare(right, 'fr', { sensitivity: 'base' }) === 0;
+const isCompleteColor = (value: string): boolean => {
+  if (value.toLowerCase() === 'auto') return true;
+  // Some DOM shims accept incomplete hex tokens through CSS.supports. Keep
+  // hexadecimal editing deterministic while retaining native support for
+  // newer CSS color syntaxes.
+  return value.startsWith('#') ? fallbackSupportsCssColor(value) : isValidCssColor(value);
+};
 
 function canonicalEditorConfig(config: Partial<TamCardConfig>): EditableConfig {
   return { ...normalizeConfig(config), type: CARD_TYPE };
@@ -33,11 +42,21 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
   @state() private loading?: CatalogLoading;
   @state() private catalogError?: string;
   @state() private manual = false;
+  @state() private colorDrafts: ColorDrafts = { background_color: 'auto', text_color: 'auto' };
 
   private generation = 0;
 
   public setConfig(config: TamCardConfig): void {
-    this.config = canonicalEditorConfig(config);
+    const normalized = canonicalEditorConfig(config);
+    this.config = normalized;
+    this.colorDrafts = {
+      background_color: isCompleteColor(this.colorDrafts.background_color)
+        ? (normalized.background_color ?? 'auto')
+        : this.colorDrafts.background_color,
+      text_color: isCompleteColor(this.colorDrafts.text_color)
+        ? (normalized.text_color ?? 'auto')
+        : this.colorDrafts.text_color,
+    };
     const generation = ++this.generation;
     void this.loadInitialCatalog(generation);
   }
@@ -108,7 +127,8 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
             this.config.refresh_interval ?? 60,
             (event) => this.changeNumber('refresh_interval', event, 30, 300),
           )}
-          ${this.booleanSelector('show_line')}${this.booleanSelector('show_realtime_badge')}
+          ${this.booleanSelector('show_icon')}${this.booleanSelector('show_line')}
+          ${this.booleanSelector('show_realtime_badge')}
           ${this.booleanSelector('show_absolute_time')}${this.booleanSelector('compact')}
         </section>
 
@@ -117,16 +137,19 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
           ${this.selector(
             localize('editor.background_color', this.language),
             { text: { type: 'text' } },
-            this.config.background_color ?? 'auto',
-            (event) => this.changeText('background_color', event),
+            this.colorDrafts.background_color,
+            (event) => this.changeColor('background_color', event),
+            () => this.restoreIncompleteColor('background_color'),
           )}
           ${this.selector(
             localize('editor.text_color', this.language),
             { text: { type: 'text' } },
-            this.config.text_color ?? 'auto',
-            (event) => this.changeText('text_color', event),
+            this.colorDrafts.text_color,
+            (event) => this.changeColor('text_color', event),
+            () => this.restoreIncompleteColor('text_color'),
           )}
           <p class="hint">${localize('editor.auto', this.language)} : <code>auto</code></p>
+          <p class="hint">${localize('editor.color_formats', this.language)}</p>
         </section>
       </div>
     `;
@@ -271,6 +294,7 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
     selector: Record<string, unknown>,
     value: unknown,
     onChange: (event: SelectorEvent) => void,
+    onFocusOut?: () => void,
   ): TemplateResult {
     return html`
       <ha-selector
@@ -279,11 +303,14 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
         .value=${value}
         .label=${label}
         @value-changed=${onChange}
+        @focusout=${onFocusOut}
       ></ha-selector>
     `;
   }
 
-  private booleanSelector(key: 'show_line' | 'show_realtime_badge' | 'show_absolute_time' | 'compact'): TemplateResult {
+  private booleanSelector(
+    key: 'show_icon' | 'show_line' | 'show_realtime_badge' | 'show_absolute_time' | 'compact',
+  ): TemplateResult {
     return this.selector(
       localize(`editor.${key}`, this.language),
       { boolean: {} },
@@ -371,7 +398,7 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
   };
 
   private changeText(
-    key: 'stop' | 'line' | 'destination' | 'background_color' | 'text_color',
+    key: 'stop' | 'line' | 'destination',
     event: SelectorEvent,
     reset: Array<'line' | 'destination' | 'direction_id'> = [],
   ): void {
@@ -382,11 +409,26 @@ export class TamCardEditor extends LitElement implements LovelaceCardEditor {
     }
     const value = textValue(event.detail.value);
     this.config = { ...this.config, [key]: value };
-    if (!value && key !== 'background_color' && key !== 'text_color') delete this.config[key];
+    if (!value) delete this.config[key];
     for (const field of reset) delete this.config[field];
     if (reset.includes('line')) this.lines = [];
     if (reset.includes('destination')) this.destinations = [];
     this.emitConfig();
+  }
+
+  private changeColor(key: ColorKey, event: SelectorEvent): void {
+    if (!this.config) return;
+    const draft = textValue(event.detail.value);
+    this.colorDrafts = { ...this.colorDrafts, [key]: draft };
+    if (!isCompleteColor(draft)) return;
+    const value = draft.toLowerCase() === 'auto' ? 'auto' : draft;
+    this.config = { ...this.config, [key]: value };
+    this.emitConfig();
+  }
+
+  private restoreIncompleteColor(key: ColorKey): void {
+    if (!this.config || isCompleteColor(this.colorDrafts[key])) return;
+    this.colorDrafts = { ...this.colorDrafts, [key]: this.config[key] ?? 'auto' };
   }
 
   private changeNumber(

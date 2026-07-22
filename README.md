@@ -53,7 +53,7 @@ url: /local/tam-card.js
 type: module
 ```
 
-Si vous remplacez une ancienne version, ajoutez temporairement un suffixe comme `/local/tam-card.js?v=4.0.0` pour invalider le cache du navigateur.
+Si vous remplacez une ancienne version, ajoutez temporairement un suffixe comme `/local/tam-card.js?v=4.1.0` pour invalider le cache du navigateur.
 
 ## Configuration
 
@@ -84,6 +84,7 @@ departures: 2
 refresh_interval: 60
 background_color: auto
 text_color: auto
+show_icon: true
 show_line: true
 show_realtime_badge: true
 show_absolute_time: false
@@ -120,15 +121,22 @@ Les valeurs textuelles reprennent les libellés du jeu de données. L’éditeur
 | `departures`                 | entier de 1 à 5                     | non                       | `2`                          | Nombre de passages en mode `destination`.                                                                           |
 | `departures_per_destination` | entier de 1 à 3                     | non                       | `1`                          | Nombre de passages affichés pour chaque destination en mode `all_destinations`.                                     |
 | `refresh_interval`           | secondes de 30 à 300                | non                       | `60`                         | Intervalle des appels réseau. Le compte à rebours continue localement chaque seconde.                               |
-| `background_color`           | couleur CSS ou `auto`               | non                       | `auto`                       | Fond de la carte. `auto` utilise la couleur officielle de la ligne.                                                 |
-| `text_color`                 | couleur CSS ou `auto`               | non                       | `auto`                       | Couleur principale du texte avec repli contrasté.                                                                   |
-| `show_line`                  | booléen                             | non                       | `true`                       | Affiche le badge et l’identité de la ligne.                                                                         |
+| `background_color`           | couleur CSS ou `auto`               | non                       | `auto`                       | Nom CSS, hexadécimal ou couleur avec transparence. `auto` utilise la couleur officielle de la ligne.                |
+| `text_color`                 | couleur CSS ou `auto`               | non                       | `auto`                       | Nom CSS, hexadécimal ou couleur avec transparence ; `auto` applique un repli contrasté.                             |
+| `show_icon`                  | booléen                             | non                       | `true`                       | Affiche l’icône du véhicule (tram, bus ou transport générique).                                                     |
+| `show_line`                  | booléen                             | non                       | `true`                       | Affiche le badge de la ligne.                                                                                       |
 | `show_realtime_badge`        | booléen                             | non                       | `true`                       | Affiche le badge « Temps réel » ou « Théorique ».                                                                   |
 | `show_absolute_time`         | booléen                             | non                       | `false`                      | Ajoute l’heure annoncée `HH:mm` au compte à rebours.                                                                |
 | `compact`                    | booléen                             | non                       | `false`                      | Réduit les espacements pour les dashboards denses.                                                                  |
 
-Les valeurs hors limites sont bornées par la normalisation centrale. Une couleur personnalisée invalide est refusée afin de conserver un rendu sûr et lisible.
-Pour un fond transparent ou fourni par une variable CSS personnalisée, renseignez aussi `text_color` si la couleur de texte du thème n’offre pas le contraste souhaité.
+Les couleurs acceptent les noms CSS (`navy`, `white`, `transparent`), les formats hexadécimaux `#RGB`, `#RGBA`, `#RRGGBB` et `#RRGGBBAA`, ainsi que `rgb()`, `rgba()`, `hsl()`, `hsla()` et `var(--nom)`. Le dernier chiffre de `#RGBA`, ou les deux derniers de `#RRGGBBAA`, représente l’opacité. En YAML, une valeur hexadécimale doit être entourée de guillemets, sinon `#` commence un commentaire :
+
+```yaml
+background_color: '#12345680' # environ 50 % d’opacité
+text_color: white
+```
+
+Les valeurs hors limites sont bornées par la normalisation centrale. Une couleur personnalisée invalide est refusée afin de conserver un rendu sûr et lisible. Pour un fond transparent ou fourni par une variable CSS personnalisée, renseignez aussi `text_color` si la couleur de texte du thème n’offre pas le contraste souhaité.
 
 ## Migration depuis les versions précédentes
 
@@ -254,7 +262,7 @@ Si Home Assistant affiche encore une ancienne carte après une mise à jour :
 1. dans HACS, retéléchargez la version et vérifiez que l’opération est terminée ;
 2. contrôlez que la ressource pointe vers `/hacsfiles/lovelace-tam-card/tam-card.js` et utilise le type `module` ;
 3. effectuez un rechargement forcé du navigateur ou videz le cache du frontend Home Assistant ;
-4. pour une installation manuelle, ajoutez temporairement `?v=4.0.0` à l’URL de la ressource ;
+4. pour une installation manuelle, ajoutez temporairement `?v=4.1.0` à l’URL de la ressource ;
 5. vérifiez dans l’onglet Réseau que `tam-card.js` et l’endpoint Hérault Data répondent sans erreur CORS, 404 ou 429.
 
 ## English quick guide

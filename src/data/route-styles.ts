@@ -202,6 +202,12 @@ export function readableTextColor(background: string, fallback = 'var(--primary-
   return whiteContrast >= blackContrast ? '#FFFFFF' : '#000000';
 }
 
+/** Whether a literal CSS color lets the underlying dashboard show through. */
+export function isTranslucentColor(color: string): boolean {
+  const parsed = parseColor(color);
+  return parsed !== undefined && parsed.alpha < 0.999;
+}
+
 export function iconForRouteType(routeType?: number): string {
   if (routeType === 0) return 'mdi:tram';
   if (routeType === 3) return 'mdi:bus';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getRoutePresentation, readableTextColor } from '../../src/data/route-styles';
+import { getRoutePresentation, isTranslucentColor, readableTextColor } from '../../src/data/route-styles';
 import { cardStyles } from '../../src/styles';
 
 describe('TAM card responsive CSS contracts', () => {
@@ -41,6 +41,15 @@ describe('TAM card responsive CSS contracts', () => {
   it('derives readable automatic text from HSL and named background colors', () => {
     expect(readableTextColor('hsl(0 0% 100%)')).toBe('#000000');
     expect(readableTextColor('navy')).toBe('#FFFFFF');
+  });
+
+  it('recognizes transparent named, hexadecimal and functional colors', () => {
+    expect(isTranslucentColor('transparent')).toBe(true);
+    expect(isTranslucentColor('#1234')).toBe(true);
+    expect(isTranslucentColor('#11223380')).toBe(true);
+    expect(isTranslucentColor('rgb(10 20 30 / 50%)')).toBe(true);
+    expect(isTranslucentColor('navy')).toBe(false);
+    expect(isTranslucentColor('#112233')).toBe(false);
   });
 
   it('prefers a validated remote route style and keeps the embedded table as fallback', () => {
